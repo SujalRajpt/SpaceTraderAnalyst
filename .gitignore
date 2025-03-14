@@ -1,0 +1,51 @@
+# 🚀 Virtual environment
+.venv/
+venv/
+
+# 🐍 Python cache & compiled files
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+
+# 📝 Logs & debug files
+*.log
+*.out
+*.err
+logs/
+debug.log
+
+# 🔧 IDE & OS-specific files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 📊 Data & notebooks
+data/
+*.csv
+*.json
+*.db
+*.sqlite
+*.sqlite3
+notebooks/.ipynb_checkpoints/
+
+# 🔑 Secrets & environment files
+.env
+.env.local
+# 🔑 Ignore secrets
+config.py
+src/config.py
+config.yaml
+secrets.json
+
+
+# 🚧 Build & distribution
+dist/
+build/
+*.egg-info/
+
+# 🚀 SpaceTraders-specific (if needed)
+test.py
+template.py
+template
