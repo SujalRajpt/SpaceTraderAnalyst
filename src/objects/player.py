@@ -1,7 +1,7 @@
 import requests
 from src.utils.config import BASE_URL, acc_token
 from src.utils.logger import logger
-from src.objects.base_api import BaseAPI
+from src.api.base_api import BaseAPI
 
 
 class PlayerCreator:
@@ -34,26 +34,31 @@ class Player(BaseAPI):
 
     def __init__(self, agent_token: str) -> None:
         super().__init__(agent_token)
-        agent_info = self.fetch_agent_info().get("data", {})
-        headquarters = agent_info.get("headquarters", "")
-        self.current_system = (
-            "-".join(headquarters.split("-")[:2]) if headquarters else None
-        )
+        self.agent_info = {}
+        self.current_system = "UNKNOWN"  # Default to prevent errors
 
-        self.agent_info = agent_info
+        self.update_current_system()  # Fetch latest system on init
 
     def fetch_agent_info(self):
         """Fetches the agent's details, including current system and waypoint."""
         url = f"{BASE_URL}/my/agent"
-        return self._get_request(url)
+        try:
+            response = self._get_request(url)
+            return response.get("data", {}) if response else {}
+        except Exception as e:
+            logger.error(f"Failed to fetch agent info: {e}")
+            return {}
 
     def update_current_system(self):
         """Updates the player's current system (e.g., after traveling)."""
-        agent_info = self.fetch_agent_info().get("data", {})
+        agent_info = self.fetch_agent_info()
         headquarters = agent_info.get("headquarters", "")
-        self.current_system = (
-            "-".join(headquarters.split("-")[:2]) if headquarters else None
-        )
+
+        if headquarters:
+            self.current_system = "-".join(headquarters.split("-")[:2])
+        else:
+            logger.warning("Headquarters not found, keeping previous system.")
+
         self.agent_info = agent_info
 
     def view_factions(self):
@@ -70,17 +75,32 @@ class Player(BaseAPI):
         url = f"{BASE_URL}/my/contracts/{contract_id}/accept"
         return self._post_request(url)
 
-    def view_all_system(self):
+    def view_all_systems(self):
         url = f"{BASE_URL}/systems"
         return self._get_request(url)
 
     def fetch_waypoints(self, filter_by_trait=""):
-        agent_info = self.fetch_agent_info().get("data", {})
+        """Fetches waypoints in the player's current system, optionally filtering by trait."""
+        if self.current_system == "UNKNOWN":
+            logger.error("Cannot fetch waypoints: Current system is unknown.")
+            return None
+
         query_params = f"?traits={filter_by_trait}" if filter_by_trait else ""
-        current_system = "-".join(agent_info["headquarters"].split("-")[:2])
-        url = f"{BASE_URL}/systems/{current_system}/waypoints{query_params}"
+        url = f"{BASE_URL}/systems/{self.current_system}/waypoints{query_params}"
         return self._get_request(url, auth_req=False)
 
+    def fetch_waypoint_info(self, waypoint_symbol):
+        """Fetches market data for a specific waypoint."""
+        if self.current_system == "UNKNOWN":
+            logger.error("Cannot fetch waypoint info: Current system is unknown.")
+            return None
+
+        url = f"{BASE_URL}/systems/{self.current_system}/waypoints/{waypoint_symbol}/market"
+        return self._get_request(
+            url, auth_req=True
+        )  # Changed to True for market access
+
     def view_my_ships(self):
+        """Fetches all player-owned ships."""
         url = f"{BASE_URL}/my/ships"
         return self._get_request(url)

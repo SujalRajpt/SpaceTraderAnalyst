@@ -27,4 +27,4 @@ ship_symbols = [ship["symbol"] for ship in ships["data"]]
 
 ship = Ship(my_player, ship_symbols[0])
 
-# pretty_print(ship2.get_in_orbit())
+pretty_print(ship.get_in_orbit())
