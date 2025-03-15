@@ -47,3 +47,16 @@ class BaseAPI:
         except requests.exceptions.RequestException as e:
             logger.error(f"POST request failed: {e}")
             return None
+
+    def _patch_request(self, url, data=None, auth_req=True, extra_headers=None):
+        try:
+            headers = self._get_header(
+                auth_req, extra_headers, has_body=(data is not None)
+            )
+            response = requests.patch(url, json=data, headers=headers)
+            response.raise_for_status()
+            return response.json()
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"patch request failed: {e}")
+            return None

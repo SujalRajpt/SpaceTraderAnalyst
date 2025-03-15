@@ -34,11 +34,27 @@ class Player(BaseAPI):
 
     def __init__(self, agent_token: str) -> None:
         super().__init__(agent_token)
+        agent_info = self.fetch_agent_info().get("data", {})
+        headquarters = agent_info.get("headquarters", "")
+        self.current_system = (
+            "-".join(headquarters.split("-")[:2]) if headquarters else None
+        )
+
+        self.agent_info = agent_info
 
     def fetch_agent_info(self):
         """Fetches the agent's details, including current system and waypoint."""
         url = f"{BASE_URL}/my/agent"
         return self._get_request(url)
+
+    def update_current_system(self):
+        """Updates the player's current system (e.g., after traveling)."""
+        agent_info = self.fetch_agent_info().get("data", {})
+        headquarters = agent_info.get("headquarters", "")
+        self.current_system = (
+            "-".join(headquarters.split("-")[:2]) if headquarters else None
+        )
+        self.agent_info = agent_info
 
     def view_factions(self):
         """Fetches all available factions."""

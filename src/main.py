@@ -20,9 +20,11 @@ def pretty_print(data):
 
 
 my_player = Player(a1)
+print(my_player.current_system)
 ships = my_player.view_my_ships()
 ship_symbols = [ship["symbol"] for ship in ships["data"]]
-pretty_print(ship_symbols)
+# pretty_print(ships)
 
 ship = Ship(my_player, ship_symbols[0])
-pretty_print(ship.get_in_orbit())
+
+# pretty_print(ship2.get_in_orbit())
