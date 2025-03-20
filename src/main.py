@@ -1,7 +1,7 @@
-from src.objects.player import Player, PlayerCreator
-from src.objects.ship import Ship
-from src.utils.config import a1
 import json
+from src.objects.player import Player
+from src.objects.ship import Ship
+from src.utils.config import a2
 
 
 def pretty_print(data):
@@ -19,12 +19,40 @@ def pretty_print(data):
 #         print(my_player.view_agent())  # Fetch agent details
 
 
-my_player = Player(a1)
-print(my_player.current_system)
-ships = my_player.view_my_ships()
-ship_symbols = [ship["symbol"] for ship in ships["data"]]
-# pretty_print(ships)
+# my_player = Player(a1)
+# ships = my_player.view_my_ships()
+# ship_symbols = [ship["symbol"] for ship in ships["data"]]
+# # pretty_print(ships)
 
-ship = Ship(my_player, ship_symbols[0])
+# ship = Ship(my_player, ship_symbols[0])
+# print(my_player.current_system, my_player.current_waypoint)
+# pretty_print(my_player.view_contracts())
 
-pretty_print(ship.get_in_orbit())
+
+player = Player(a2)
+
+ship_symbols = [x["symbol"] for x in player.view_my_ships().get("data", [])]
+# print(ship_symbols)
+# pretty_print(player.fetch_agent_info())
+
+response = player.view_my_ships()  # Assuming this returns a dictionary
+
+
+# Extract ship details by symbol
+def get_ship_details(response, ship_symbol):
+    for ship in response["data"]:
+        if ship["symbol"] == ship_symbol:
+            return ship  # Return the ship details
+
+    return None  # If ship not found
+
+
+# Example usage
+ship_symbol = "TEST_USER-1"  # Change this to the ship you want
+ship_details = get_ship_details(response, ship_symbol)
+
+# Pretty print ship details
+if ship_details:
+    print(json.dumps(ship_details, indent=4))
+else:
+    print(f"Ship '{ship_symbol}' not found.")

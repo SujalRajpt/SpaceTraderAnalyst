@@ -4,11 +4,25 @@ from src.utils.logger import logger
 from src.api.base_api import BaseAPI
 
 
-class PlayerCreator:
-    """Handles player creation in SpaceTraders."""
+class Player(BaseAPI):
+    """Handles agent (player) actions in SpaceTraders."""
+
+    def __init__(self, agent_token: str) -> None:
+        super().__init__(agent_token)
+        self.agent_token = agent_token
+        self.current_system = "UNKNOWN"
+        self.current_waypoint = "UNKNOWN"
+        self.credit = 0
+        self.starting_faction = "UNKNOWN"
+        self.shipSymbol = []
+
+        self.update_current_system()  # Fetch latest system on init
 
     @classmethod
-    def create_player(cls, symbol: str, faction: str = "COSMIC"):
+    def create(cls, symbol: str, faction: str = "COSMIC"):
+        """
+        Creates a new player (agent) and returns an instance of Player.
+        """
         url = f"{BASE_URL}/register"
         headers = {
             "Authorization": f"Bearer {acc_token}",
@@ -18,26 +32,21 @@ class PlayerCreator:
 
         try:
             response = requests.post(url, json=data, headers=headers)
-            response.raise_for_status()  # Raises error for 4xx/5xx status codes
+            response.raise_for_status()
             response_data = response.json()
 
+            token = response_data.get("data", {}).get("token")  # Extract token
+            print(token)
+            if not token:
+                logger.error("Failed to retrieve player token from response.")
+                return None
+
             logger.info(f"Player '{symbol}' registered successfully.")
-            return response_data  # Includes agent token and details
+            return cls(token)  # Return a Player instance with the token
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Failed to register player: {e}")
             return None
-
-
-class Player(BaseAPI):
-    """Handles agent (player) actions in SpaceTraders."""
-
-    def __init__(self, agent_token: str) -> None:
-        super().__init__(agent_token)
-        self.agent_info = {}
-        self.current_system = "UNKNOWN"  # Default to prevent errors
-
-        self.update_current_system()  # Fetch latest system on init
 
     def fetch_agent_info(self):
         """Fetches the agent's details, including current system and waypoint."""
@@ -56,10 +65,14 @@ class Player(BaseAPI):
 
         if headquarters:
             self.current_system = "-".join(headquarters.split("-")[:2])
+            self.current_waypoint = headquarters
+            self.credit = agent_info.get("credits", 0)
+            self.starting_faction = agent_info.get("faction", "UNKNOWN")
+            self.shipSymbol = [
+                x["symbol"] for x in self.view_my_ships().get("data", [])
+            ]
         else:
             logger.warning("Headquarters not found, keeping previous system.")
-
-        self.agent_info = agent_info
 
     def view_factions(self):
         """Fetches all available factions."""
@@ -89,13 +102,13 @@ class Player(BaseAPI):
         url = f"{BASE_URL}/systems/{self.current_system}/waypoints{query_params}"
         return self._get_request(url, auth_req=False)
 
-    def fetch_waypoint_info(self, waypoint_symbol):
+    def fetch_current_waypoint_info(self):
         """Fetches market data for a specific waypoint."""
         if self.current_system == "UNKNOWN":
             logger.error("Cannot fetch waypoint info: Current system is unknown.")
             return None
 
-        url = f"{BASE_URL}/systems/{self.current_system}/waypoints/{waypoint_symbol}/market"
+        url = f"{BASE_URL}/systems/{self.current_system}/waypoints/{self.current_waypoint}/market"
         return self._get_request(
             url, auth_req=True
         )  # Changed to True for market access
