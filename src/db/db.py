@@ -13,7 +13,7 @@ from src.utils.config import (
 DATABASE_URL = f"postgresql://{POSTGRES_USERNAME}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}:{POSTGRES_PORT}/{POSTGRES_DB}"
 
 # Create engine
-engine = create_engine(DATABASE_URL, echo=True)
+engine = create_engine(DATABASE_URL, echo=False)
 
 # Create a session factory
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
@@ -24,7 +24,7 @@ def init_db():
     with engine.connect() as conn:
         conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA_NAME}"))
         conn.commit()
-    # Base.metadata.drop_all(engine)
+    Base.metadata.drop_all(engine)
     # Create tables within the schema
     Base.metadata.create_all(engine)
 

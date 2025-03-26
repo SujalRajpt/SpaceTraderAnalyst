@@ -18,3 +18,13 @@ logging.basicConfig(
 
 # Create a logger instance
 logger = logging.getLogger("spacetraders")
+# 🔴 **Suppress SQLAlchemy Logs (Add this part below)**
+logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)  # Hide query logs
+
+# Or, completely disable all SQLAlchemy logs:
+# logging.getLogger("sqlalchemy").setLevel(logging.WARNING)
+
+# 🔴 **Alternative: Disable SQL logs completely (Optional)**
+# logging.getLogger("sqlalchemy.engine").disabled = True
+
+logger.info("Application started.")
