@@ -4,10 +4,8 @@
 ACC_TOKEN = "your_token_here"
 BASE_URL = "https://api.spacetraders.io/v2"
 
-POSTGRES_USERNAME = "your_username_here"
-POSTGRES_PASSWORD = "your_password_here"
-POSTGRES_SERVER = "your_server_here"
+POSTGRES_USERNAME = "postgres"
+POSTGRES_PASSWORD = "postgres"
+POSTGRES_SERVER = "localhost"
 POSTGRES_PORT = "5432"
-POSTGRES_DB = "your_database_here"
-
-DATABASE_URL = f"postgresql://{POSTGRES_USERNAME}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}:{POSTGRES_PORT}/{POSTGRES_DB}"
+POSTGRES_DB = "postgres"
