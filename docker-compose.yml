@@ -2,7 +2,7 @@ version: '3'
 
 services:
   postgres:
-    image: postgres:13
+    image: postgis/postgis:13-3.3  # ✅ Use PostGIS-enabled PostgreSQL image
     container_name: postgres_df
     restart: always
     environment: 

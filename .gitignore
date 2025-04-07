@@ -47,6 +47,7 @@ build/
 
 # 🚀 SpaceTraders-specific (if needed)
 test.py
+test.ipynb
 template.py
 template
 

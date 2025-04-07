@@ -24,39 +24,43 @@ class BaseAPI:
 
         return header
 
-    def _get_request(self, url, auth_req=True, extra_headers=None):
+    def _get_request(self, url, auth_req=True, extra_headers=None, params=None):
         """Helper method to handle GET requests with error handling."""
         try:
             headers = self._get_header(auth_req, extra_headers, has_body=False)
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=headers, params=params)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
             logger.error(f"GET request failed: {e}")
             return None
 
-    def _post_request(self, url, data=None, auth_req=True, extra_headers=None):
+    def _post_request(
+        self, url, data=None, auth_req=True, extra_headers=None, params=None
+    ):
         """Helper method to handle POST requests with error handling."""
         try:
             headers = self._get_header(
                 auth_req, extra_headers, has_body=(data is not None)
             )
-            response = requests.post(url, json=data, headers=headers)
+            response = requests.post(url, json=data, headers=headers, params=params)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
             logger.error(f"POST request failed: {e}")
             return None
 
-    def _patch_request(self, url, data=None, auth_req=True, extra_headers=None):
+    def _patch_request(
+        self, url, data=None, auth_req=True, extra_headers=None, params=None
+    ):
+        """Helper method to handle PATCH requests with error handling."""
         try:
             headers = self._get_header(
                 auth_req, extra_headers, has_body=(data is not None)
             )
-            response = requests.patch(url, json=data, headers=headers)
+            response = requests.patch(url, json=data, headers=headers, params=params)
             response.raise_for_status()
             return response.json()
-
         except requests.exceptions.RequestException as e:
-            logger.error(f"patch request failed: {e}")
+            logger.error(f"PATCH request failed: {e}")
             return None

@@ -1,10 +1,11 @@
 import json
 from src.objects.player import Player
 from src.objects.ship import SpaceShip
-from src.objects.market import Market
 from src.db.db_session import get_session
-from src.db.models import Agent, Ship
+from src.db.models import Agent, Waypoint, System
 from src.objects.sol_system import SolSystem
+from src.utils.logger import logger
+from src.objects.market import Market
 
 
 def pretty_print(data):
@@ -17,20 +18,11 @@ with get_session() as session:
 
     if agent:
         agent_token = agent.agent_token
+        player = Player(agent_token)
+        market_builder = Market(player)
     else:
         agent_token = None
 
 
-player = Player(agent_token)
-ship = SpaceShip(player, "SUJAL-1")
-
-# print(player)
-# print("" * 20)
-# print(ship)
-
-print(ship.origin)
-origin_system = "-".join(ship.origin.split("-")[:2])
-sol = SolSystem(origin_system)
-neighbors = sol.get_neighbors_within_radius(radius=1000)
-
-pretty_print(neighbors[0].get("symbol"))
+market_builder.build_local_market()
+# X1-FT7-A1

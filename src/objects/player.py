@@ -9,6 +9,7 @@ from src.db.models import Agent, Ship
 class Player(BaseAPI):
     """Handles agent (player) actions in SpaceTraders."""
 
+    # 1️⃣ Initialization & Dunder Methods
     def __init__(self, agent_token: str, load_from_db=True) -> None:
         super().__init__(agent_token)
         self.agent_token = agent_token
@@ -16,12 +17,23 @@ class Player(BaseAPI):
         self.current_waypoint = "UNKNOWN"
         self.credit = 0
         self.starting_faction = "UNKNOWN"
-        self.shipSymbol = []
+        self.shipSymbols = []
         if load_from_db:
             self.load_from_db()
 
+    def __str__(self):
+        return (
+            f"🚀 Ship: {self.shipSymbols}\n"
+            f"🌍 Current System: {self.current_system}\n"
+            f"📍 Current Waypoint: {self.current_waypoint}\n"
+            f"💰 Credit: {self.credit}\n"
+            f"🏴 Faction: {self.starting_faction}"
+        )
+
+    # 2️⃣ Static & Class Methods
     @staticmethod
     def create_player(symbol: str, faction: str = "COSMIC"):
+        """Creates a new player in the game."""
         url = f"{BASE_URL}/register"
         headers = {
             "Authorization": f"Bearer {acc_token}",
@@ -51,6 +63,7 @@ class Player(BaseAPI):
             logger.error(f"Failed to register player: {e}")
             return None
 
+    # 3️⃣ Player Data Management Methods
     def fetch_agent_info(self):
         """Fetches the agent's details, including current system and waypoint."""
         url = f"{BASE_URL}/my/agent"
@@ -62,7 +75,7 @@ class Player(BaseAPI):
             return {}
 
     def update_from_api(self):
-        """Updates the player's current system (e.g., after traveling)."""
+        """Updates the player's current system, waypoint, and ships."""
         agent_info = self.fetch_agent_info()
         headquarters = agent_info.get("headquarters", "")
 
@@ -75,7 +88,6 @@ class Player(BaseAPI):
             self.shipSymbols = (
                 [x["symbol"] for x in ships_data.get("data", [])] if ships_data else []
             )
-
         else:
             logger.warning("Player no longer exists !!")
 
@@ -100,11 +112,11 @@ class Player(BaseAPI):
             session.flush()
 
             for shipSymbol in self.shipSymbols:
-                # Avoid duplicate ship insertion
                 if not session.query(Ship).filter_by(symbol=shipSymbol).first():
                     session.add(Ship(agent_id=agent.id, symbol=shipSymbol))
 
     def load_from_db(self):
+        """Loads player data from the database."""
         with get_session() as session:
             agent = session.query(Agent).filter_by(agent_token=self.agent_token).first()
             if agent:
@@ -112,30 +124,33 @@ class Player(BaseAPI):
                 self.current_waypoint = agent.current_waypoint
                 self.credit = agent.credit
                 self.starting_faction = agent.starting_faction
-                self.shipSymbol = [
+                self.shipSymbols = [
                     ship.symbol
                     for ship in session.query(Ship).filter_by(agent_id=agent.id).all()
                 ]
             else:
                 logger.warning("Player not found in database.")
 
+    # 4️⃣ API Request Methods
     def view_factions(self):
         """Fetches all available factions."""
         url = f"{BASE_URL}/factions"
         return self._get_request(url)
 
     def view_contracts(self):
-        """Fetch agent's active contracts."""
+        """Fetches agent's active contracts."""
         url = f"{BASE_URL}/my/contracts"
         return self._get_request(url)
 
     def accept_contract(self, contract_id):
+        """Accepts a contract."""
         url = f"{BASE_URL}/my/contracts/{contract_id}/accept"
         return self._post_request(url)
 
-    def view_all_systems(self):
+    def view_all_systems(self, params=None):
+        """Fetches all available systems."""
         url = f"{BASE_URL}/systems"
-        return self._get_request(url)
+        return self._get_request(url, params=params)
 
     def fetch_waypoints(self, filter_by_trait=""):
         """Fetches waypoints in the player's current system, optionally filtering by trait."""
@@ -147,16 +162,17 @@ class Player(BaseAPI):
         url = f"{BASE_URL}/systems/{self.current_system}/waypoints{query_params}"
         return self._get_request(url, auth_req=False)
 
-    def fetch_current_waypoint_info(self):
-        """Fetches market data for a specific waypoint."""
-        if self.current_system == "UNKNOWN":
-            logger.error("Cannot fetch waypoint info: Current system is unknown.")
-            return None
+    def fetch_market_data(self, waypoint=None):
+        """Fetches market data from a given system and waypoint."""
+        waypoint = waypoint or self.current_waypoint
 
-        url = f"{BASE_URL}/systems/{self.current_system}/waypoints/{self.current_waypoint}/market"
-        return self._get_request(
-            url, auth_req=True
-        )  # Changed to True for market access
+        if not waypoint:
+            logger.error("Cannot fetch market data: System or waypoint is unknown.")
+            return None
+        system = "-".join(waypoint.split("-")[:2])
+
+        url = f"{BASE_URL}/systems/{system}/waypoints/{waypoint}/market"
+        return self._get_request(url, auth_req=True)
 
     def view_my_ships(self):
         """Fetches all player-owned ships."""
