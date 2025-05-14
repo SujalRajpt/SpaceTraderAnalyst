@@ -143,7 +143,6 @@ class Market:
         self, market_json, ship_id: int, waypoint_id: int
     ) -> None:
         trade_goods = market_json.get("data", {}).get("tradeGoods", [])
-        print(trade_goods)
         with get_session() as session:
             for item in trade_goods:
                 symbol = item.get("symbol", "UNKNOWN")

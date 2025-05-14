@@ -1,6 +1,5 @@
 import json
 from src.objects.player import Player
-from src.objects.ship import SpaceShip
 from src.db.db_session import get_session
 from src.db.models import Agent, Waypoint, System
 from src.objects.sol_system import SolSystem
@@ -14,7 +13,7 @@ def pretty_print(data):
 
 
 with get_session() as session:
-    agent = session.query(Agent).filter_by(id=1).first()
+    agent = session.query(Agent).filter_by(id=2).first()
 
     if agent:
         agent_token = agent.agent_token

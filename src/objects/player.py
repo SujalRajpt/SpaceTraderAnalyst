@@ -152,14 +152,15 @@ class Player(BaseAPI):
         url = f"{BASE_URL}/systems"
         return self._get_request(url, params=params)
 
-    def fetch_waypoints(self, filter_by_trait=""):
+    def fetch_waypoints(self, current_system=None, filter_by_trait=""):
         """Fetches waypoints in the player's current system, optionally filtering by trait."""
-        if self.current_system == "UNKNOWN":
+        current_system = current_system or self.current_system
+        if not current_system:
             logger.error("Cannot fetch waypoints: Current system is unknown.")
             return None
 
         query_params = f"?traits={filter_by_trait}" if filter_by_trait else ""
-        url = f"{BASE_URL}/systems/{self.current_system}/waypoints{query_params}"
+        url = f"{BASE_URL}/systems/{current_system}/waypoints{query_params}"
         return self._get_request(url, auth_req=False)
 
     def fetch_market_data(self, waypoint=None):

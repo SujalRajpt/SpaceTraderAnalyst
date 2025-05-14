@@ -13,7 +13,7 @@ def pretty_print(data):
 
 
 with get_session() as session:
-    agent = session.query(Agent).filter_by(id=1).first()
+    agent = session.query(Agent).filter_by(id=2).first()
 
     if agent:
         agent_token = agent.agent_token
@@ -22,15 +22,16 @@ with get_session() as session:
 
 
 player = Player(agent_token)
-ship = SpaceShip(player, "SUJAL-1")
+ship = SpaceShip(player, "AARNAV-1")
 
 # print(player)
 # print("" * 20)
 # print(ship)
 
-print(ship.origin)
+# print(ship.origin)
 origin_system = "-".join(ship.origin.split("-")[:2])
 sol = SolSystem(origin_system)
 neighbors = sol.get_neighbors_within_radius(radius=1000)
 
-pretty_print(neighbors[0].get("symbol"))
+mk = player.fetch_market_data()
+pretty_print(mk)
