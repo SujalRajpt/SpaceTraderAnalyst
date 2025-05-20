@@ -1,0 +1,241 @@
+Here's a **complete PostgreSQL database structure** for storing detailed **ship data** from SpaceTraders, based on your provided JSON. It separates key aspects like modules, mounts, navigation, and fuel, and is designed for flexibility and future scaling.
+
+---
+
+## 🧱 Main Table: `ships`
+
+```sql
+CREATE TABLE ships (
+    ship_id TEXT PRIMARY KEY,  -- e.g. "AARNAV-1"
+    name TEXT,
+    faction TEXT,
+    role TEXT,
+    status TEXT,               -- DOCKED, IN_TRANSIT, etc.
+    flight_mode TEXT,          -- CRUISE, BURN, DRIFT
+    current_system TEXT,
+    current_waypoint TEXT,
+    speed INT,
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now()
+);
+```
+
+---
+
+## ⛽ `ship_fuel`
+
+```sql
+CREATE TABLE ship_fuel (
+    id SERIAL PRIMARY KEY,
+    ship_id TEXT REFERENCES ships(ship_id) ON DELETE CASCADE,
+    current INT,
+    capacity INT,
+    consumed_amount INT,
+    consumed_timestamp TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT now()
+);
+```
+
+---
+
+## 🧭 `ship_navigation` (for route info)
+
+```sql
+CREATE TABLE ship_navigation (
+    id SERIAL PRIMARY KEY,
+    ship_id TEXT REFERENCES ships(ship_id) ON DELETE CASCADE,
+    origin_waypoint TEXT,
+    origin_system TEXT,
+    destination_waypoint TEXT,
+    destination_system TEXT,
+    departure_time TIMESTAMP,
+    arrival_time TIMESTAMP,
+    in_transit BOOLEAN,
+    updated_at TIMESTAMP DEFAULT now()
+);
+```
+
+---
+
+## 👨‍🚀 `ship_crew`
+
+```sql
+CREATE TABLE ship_crew (
+    id SERIAL PRIMARY KEY,
+    ship_id TEXT REFERENCES ships(ship_id) ON DELETE CASCADE,
+    current_crew INT,
+    required_crew INT,
+    capacity INT,
+    rotation TEXT,
+    morale INT,
+    wages INT
+);
+```
+
+---
+
+## 🧱 `ship_frame`
+
+```sql
+CREATE TABLE ship_frame (
+    id SERIAL PRIMARY KEY,
+    ship_id TEXT REFERENCES ships(ship_id) ON DELETE CASCADE,
+    symbol TEXT,
+    name TEXT,
+    condition FLOAT,
+    integrity FLOAT,
+    description TEXT,
+    module_slots INT,
+    mounting_points INT,
+    fuel_capacity INT,
+    power_required INT,
+    crew_required INT,
+    quality INT
+);
+```
+
+---
+
+## ⚡ `ship_reactor`
+
+```sql
+CREATE TABLE ship_reactor (
+    id SERIAL PRIMARY KEY,
+    ship_id TEXT REFERENCES ships(ship_id) ON DELETE CASCADE,
+    symbol TEXT,
+    name TEXT,
+    condition FLOAT,
+    integrity FLOAT,
+    description TEXT,
+    power_output INT,
+    crew_required INT,
+    quality INT
+);
+```
+
+---
+
+## 🚀 `ship_engine`
+
+```sql
+CREATE TABLE ship_engine (
+    id SERIAL PRIMARY KEY,
+    ship_id TEXT REFERENCES ships(ship_id) ON DELETE CASCADE,
+    symbol TEXT,
+    name TEXT,
+    condition FLOAT,
+    integrity FLOAT,
+    description TEXT,
+    speed INT,
+    power_required INT,
+    crew_required INT,
+    quality INT
+);
+```
+
+---
+
+## 📦 `ship_modules`
+
+```sql
+CREATE TABLE ship_modules (
+    id SERIAL PRIMARY KEY,
+    ship_id TEXT REFERENCES ships(ship_id) ON DELETE CASCADE,
+    symbol TEXT,
+    name TEXT,
+    description TEXT,
+    power_required INT,
+    crew_required INT,
+    slot_required INT,
+    capacity INT,
+    created_at TIMESTAMP DEFAULT now()
+);
+```
+
+---
+
+## 🔫 `ship_mounts`
+
+```sql
+CREATE TABLE ship_mounts (
+    id SERIAL PRIMARY KEY,
+    ship_id TEXT REFERENCES ships(ship_id) ON DELETE CASCADE,
+    symbol TEXT,
+    name TEXT,
+    description TEXT,
+    power_required INT,
+    crew_required INT,
+    strength INT,
+    deposits TEXT[],  -- optional, for surveyors
+    created_at TIMESTAMP DEFAULT now()
+);
+```
+
+---
+
+## 📊 `ship_cargo`
+
+```sql
+CREATE TABLE ship_cargo (
+    id SERIAL PRIMARY KEY,
+    ship_id TEXT REFERENCES ships(ship_id) ON DELETE CASCADE,
+    capacity INT,
+    units INT,
+    updated_at TIMESTAMP DEFAULT now()
+);
+```
+
+### (Optional) `ship_inventory` if you want detailed inventory breakdown
+
+```sql
+CREATE TABLE ship_inventory (
+    id SERIAL PRIMARY KEY,
+    ship_id TEXT REFERENCES ships(ship_id) ON DELETE CASCADE,
+    item_symbol TEXT,
+    quantity INT
+);
+```
+
+---
+
+## 🕒 `ship_cooldown`
+
+```sql
+CREATE TABLE ship_cooldowns (
+    id SERIAL PRIMARY KEY,
+    ship_id TEXT REFERENCES ships(ship_id) ON DELETE CASCADE,
+    total_seconds INT,
+    remaining_seconds INT,
+    updated_at TIMESTAMP DEFAULT now()
+);
+```
+
+---
+
+## 🔁 Relationships Diagram (Simplified)
+
+```
+ships
+├── ship_fuel
+├── ship_navigation
+├── ship_crew
+├── ship_frame
+├── ship_reactor
+├── ship_engine
+├── ship_modules (many)
+├── ship_mounts (many)
+├── ship_cargo
+│   └── ship_inventory (many)
+└── ship_cooldowns
+```
+
+---
+
+Let me know if you'd like:
+
+* SQLAlchemy or Django ORM model versions
+* Migration scripts
+* Sample insert logic based on the JSON you posted
+* Data validators (e.g., Pydantic for FastAPI)
+
+Ready when you are!

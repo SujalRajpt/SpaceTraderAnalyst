@@ -1,0 +1,214 @@
+{
+    "data": {
+        "symbol": "AARNAV-1",
+        "registration": {
+            "name": "AARNAV-1",
+            "factionSymbol": "COSMIC",
+            "role": "COMMAND"
+        },
+        "nav": {
+            "systemSymbol": "X1-HU11",
+            "waypointSymbol": "X1-HU11-A1",
+            "route": {
+                "destination": {
+                    "symbol": "X1-HU11-A1",
+                    "type": "PLANET",
+                    "systemSymbol": "X1-HU11",
+                    "x": 13,
+                    "y": -22
+                },
+                "origin": {
+                    "symbol": "X1-HU11-A1",
+                    "type": "PLANET",
+                    "systemSymbol": "X1-HU11",
+                    "x": 13,
+                    "y": -22
+                },
+                "departureTime": "2025-05-13T14:31:55.548Z",
+                "arrival": "2025-05-13T14:31:55.548Z"
+            },
+            "status": "DOCKED",
+            "flightMode": "CRUISE"
+        },
+        "crew": {
+            "current": 57,
+            "required": 57,
+            "capacity": 80,
+            "rotation": "STRICT",
+            "morale": 100,
+            "wages": 0
+        },
+        "frame": {
+            "symbol": "FRAME_FRIGATE",
+            "name": "Frigate",
+            "condition": 1,
+            "integrity": 1,
+            "description": "A medium-sized, multi-purpose spacecraft, often used for combat, transport, or support operations.",
+            "moduleSlots": 8,
+            "mountingPoints": 5,
+            "fuelCapacity": 400,
+            "requirements": {
+                "power": 8,
+                "crew": 25
+            },
+            "quality": 4
+        },
+        "reactor": {
+            "symbol": "REACTOR_FISSION_I",
+            "name": "Fission Reactor I",
+            "condition": 1,
+            "integrity": 1,
+            "description": "A basic fission power reactor, used to generate electricity from nuclear fission reactions.",    
+            "powerOutput": 31,
+            "requirements": {
+                "crew": 8
+            },
+            "quality": 5
+        },
+        "engine": {
+            "symbol": "ENGINE_ION_DRIVE_II",
+            "name": "Ion Drive II",
+            "condition": 1,
+            "integrity": 1,
+            "description": "An advanced propulsion system that uses ionized particles to generate high-speed, low-thrust acceleration, with improved efficiency and performance.",
+            "speed": 36,
+            "requirements": {
+                "power": 6,
+                "crew": 8
+            },
+            "quality": 4
+        },
+        
+        
+        "modules": [
+            {
+                "symbol": "MODULE_CARGO_HOLD_II",
+                "name": "Expanded Cargo Hold",
+                "description": "An expanded cargo hold module that provides more efficient storage space for a ship's cargo.",
+                "requirements": {
+                    "power": 2,
+                    "crew": 2,
+                    "slots": 2
+                },
+                "capacity": 40
+            },
+            {
+                "symbol": "MODULE_CREW_QUARTERS_I",
+                "name": "Crew Quarters",
+                "description": "A module that provides living space and amenities for the crew.",
+                "requirements": {
+                    "power": 1,
+                    "crew": 2,
+                    "slots": 1
+                },
+                "capacity": 40
+            },
+            {
+                "symbol": "MODULE_CREW_QUARTERS_I",
+                "name": "Crew Quarters",
+                "description": "A module that provides living space and amenities for the crew.",
+                "requirements": {
+                    "power": 1,
+                    "crew": 2,
+                    "slots": 1
+                },
+                "capacity": 40
+            },
+            {
+                "symbol": "MODULE_MINERAL_PROCESSOR_I",
+                "name": "Mineral Processor",
+                "description": "Crushes and processes extracted minerals and ores into their component parts, filters out impurities, and containerizes them into raw storage units.",
+                "requirements": {
+                    "power": 1,
+                    "crew": 0,
+                    "slots": 2
+                }
+            },
+            {
+                "symbol": "MODULE_GAS_PROCESSOR_I",
+                "name": "Gas Processor",
+                "description": "Filters and processes extracted gases into their component parts, filters out impurities, and containerizes them into raw storage units.",
+                "requirements": {
+                    "power": 1,
+                    "crew": 0,
+                    "slots": 2
+                }
+            }
+        ],
+        "mounts": [
+            {
+                "symbol": "MOUNT_SENSOR_ARRAY_II",
+                "name": "Sensor Array II",
+                "description": "An advanced sensor array that improves a ship's ability to detect and track other objects in space with greater accuracy and range.",
+                "requirements": {
+                    "power": 2,
+                    "crew": 2
+                },
+                "strength": 4
+            },
+            {
+                "symbol": "MOUNT_GAS_SIPHON_II",
+                "name": "Gas Siphon II",
+                "description": "An advanced gas siphon that can extract gas and other resources from gas giants and other gas-rich bodies more efficiently and at a higher rate.",
+                "requirements": {
+                    "power": 2,
+                    "crew": 2
+                },
+                "strength": 20
+            },
+            {
+                "symbol": "MOUNT_MINING_LASER_II",
+                "name": "Mining Laser II",
+                "description": "An advanced mining laser that is more efficient and effective at extracting valuable minerals from asteroids and other space objects.",
+                "requirements": {
+                    "power": 2,
+                    "crew": 2
+                },
+                "strength": 5
+            },
+            {
+                "symbol": "MOUNT_SURVEYOR_II",
+                "name": "Surveyor II",
+                "description": "An advanced survey probe that can be used to gather information about a mineral deposit with greater accuracy.",
+                "requirements": {
+                    "power": 3,
+                    "crew": 4
+                },
+                "strength": 2,
+                "deposits": [
+                    "QUARTZ_SAND",
+                    "SILICON_CRYSTALS",
+                    "PRECIOUS_STONES",
+                    "ICE_WATER",
+                    "AMMONIA_ICE",
+                    "IRON_ORE",
+                    "COPPER_ORE",
+                    "SILVER_ORE",
+                    "ALUMINUM_ORE",
+                    "GOLD_ORE",
+                    "PLATINUM_ORE",
+                    "DIAMONDS",
+                    "URANITE_ORE"
+                ]
+            }
+        ],
+        "cargo": {
+            "capacity": 40,
+            "units": 0,
+            "inventory": []
+        },
+        "fuel": {
+            "current": 400,
+            "capacity": 400,
+            "consumed": {
+                "amount": 0,
+                "timestamp": "2025-05-13T14:31:55.548Z"
+            }
+        },
+        "cooldown": {
+            "shipSymbol": "AARNAV-1",
+            "totalSeconds": 0,
+            "remainingSeconds": 0
+        }
+    }
+}
