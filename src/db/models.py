@@ -126,7 +126,6 @@ class Mount(Base):
     power = Column(Integer)
     crew = Column(Integer)
     strength = Column(Integer)
-    deposits = Column(ARRAY(String), nullable=True)
 
     ship = relationship("Ship", back_populates="mounts")
 
@@ -148,7 +147,8 @@ class ShipNavigation(Base):
     destination_system = Column(String, nullable=False)
     departure_time = Column(DateTime, nullable=False)
     arrival_time = Column(DateTime, nullable=False)
-    in_transit = Column(Boolean, default=False)
+    status = Column(String, nullable=False)
+    flightMode = Column(String, nullable=False)
     updated_at = Column(
         DateTime,
         default=datetime.now(timezone.utc),
@@ -212,7 +212,7 @@ class ShipCrew(Base):
     current = Column(Integer, nullable=False)
     capacity = Column(Integer, nullable=False)
     required = Column(Integer, nullable=False)
-    rotation = Column(Integer, nullable=False)
+    rotation = Column(String, nullable=False)
     morale = Column(Integer, nullable=False)
     wages = Column(Integer, nullable=False)
     last_updated = Column(

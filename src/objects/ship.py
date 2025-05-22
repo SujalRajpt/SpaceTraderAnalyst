@@ -17,6 +17,7 @@ from src.db.models import (
     ShipCooldown,
     ShipTelemetry,
 )
+from datetime import datetime
 
 
 class SpaceShip(BaseAPI):
@@ -47,9 +48,9 @@ class SpaceShip(BaseAPI):
 
         ship_obj = cls(shipSymbol, player=player)
         ship = session.query(Ship).filter_by(symbol=shipSymbol).first()
+
         if ship:
             # Load from DB
-
             ship_obj.factionSymbol = ship.factionSymbol
             ship_obj.role = ship.role
             ship_obj.status = ship.status
@@ -58,11 +59,11 @@ class SpaceShip(BaseAPI):
             ship_obj.waypointSymbol = ship.waypointSymbol
             ship_obj.speed = ship.speed
             logger.info(f"Loaded ship {shipSymbol} from DB.")
-        else:
-            # Fetch from API and save
-            logger.info(f"Ship {shipSymbol} not found in DB. Fetching from API.")
-            ship_obj.update_from_api()
-            ship_obj.save_to_db(session=session)
+
+        # Always fetch fresh data and update DB
+        logger.info(f"Updating ship {shipSymbol} from API.")
+        ship_obj.update_from_api()
+        ship_obj.save_to_db(session=session)
 
         return ship_obj
 
@@ -104,11 +105,17 @@ class SpaceShip(BaseAPI):
 
         session.add(ship)
         session.flush()
+        ship_info = self.get_ship_status()
+        self.update_modules(session=session, ship_info=ship_info)
+        self.update_mounts(session=session, ship_info=ship_info)
+        self.update_all_telemetry_subcomponent(session=session, ship_info=ship_info)
+        logger.info(f"Saved ship {self.shipSymbol} to DB.")
 
     def update_from_api(self):
         """Fetches and updates ship info from the API."""
         ship_info = self.get_ship_status()["data"]
         if ship_info:
+            # Update ship attributes
             self.factionSymbol = ship_info["registration"].get(
                 "factionSymbol", "UNKNOWN"
             )
@@ -118,6 +125,7 @@ class SpaceShip(BaseAPI):
             self.systemSymbol = ship_info["nav"].get("systemSymbol", "UNKNOWN")
             self.waypointSymbol = ship_info["nav"].get("waypointSymbol", "UNKNOWN")
             self.speed = ship_info["engine"].get("speed", 0)
+
         else:
             logger.warning("Ship data not found from API.")
 
@@ -131,6 +139,511 @@ class SpaceShip(BaseAPI):
             f"  Location: System '{self.systemSymbol}', Waypoint '{self.waypointSymbol}'\n"
             f"  Speed: {self.speed} units\n"
             f"  Owned by Player: {self.player.symbol if self.player else 'Unknown'}"
+        )
+
+    def with_session_and_ship_info(self, session=None, ship_info=None, fn=None):
+        def task(s):
+            ship_info_resolved = ship_info or self.get_ship_status()["data"]
+            return fn(s, ship_info_resolved)
+
+        if session:
+            return task(session)
+
+        with get_session() as new_session:
+            return task(new_session)
+
+    def update_modules(self, session=None, ship_info=None):
+        def core(session, ship_info):
+            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+            if not ship:
+                logger.warning(f"Ship {self.shipSymbol} not found in DB.")
+                return
+
+            for mod_data in ship_info["data"]["modules"]:
+                existing_module = (
+                    session.query(Module)
+                    .filter(
+                        Module.ship_id == ship.id,
+                        Module.symbol == mod_data.get("symbol"),
+                    )
+                    .first()
+                )
+
+                requirements = mod_data.get("requirements", {})
+
+                if existing_module:
+                    existing_module.power = requirements.get("power")
+                    existing_module.crew = requirements.get("crew")
+                    existing_module.slots = requirements.get("slots")
+                    existing_module.capacity = requirements.get("capacity")
+                else:
+                    new_module = Module(
+                        ship_id=ship.id,
+                        name=mod_data.get("name"),
+                        description=mod_data.get("description"),
+                        symbol=mod_data.get("symbol"),
+                        power=requirements.get("power"),
+                        crew=requirements.get("crew"),
+                        slots=requirements.get("slots"),
+                        capacity=requirements.get("capacity"),
+                    )
+                    session.add(new_module)
+
+            session.flush()
+
+        return self.with_session_and_ship_info(
+            session=session, ship_info=ship_info, fn=core
+        )
+
+    def update_mounts(self, session=None, ship_info=None):
+        def core(session, ship_info):
+            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+            if not ship:
+                logger.warning(f"Ship {self.shipSymbol} not found in DB.")
+                return
+            for mount_data in ship_info["data"]["mounts"]:
+                existing_mount = (
+                    session.query(Mount)
+                    .filter(
+                        Mount.ship_id == ship.id,
+                        Mount.symbol == mount_data.get("symbol"),
+                    )
+                    .first()
+                )
+
+                requirements = mount_data.get("requirements", {})
+
+                if existing_mount:
+                    existing_mount.power = requirements.get("power")
+                    existing_mount.crew = requirements.get("crew")
+                else:
+                    new_mount = Mount(
+                        ship_id=ship.id,
+                        name=mount_data.get("name"),
+                        description=mount_data.get("description"),
+                        symbol=mount_data.get("symbol"),
+                        power=requirements.get("power"),
+                        crew=requirements.get("crew"),
+                        strength=mount_data.get("strength"),
+                    )
+                    session.add(new_mount)
+
+            session.flush()
+
+        return self.with_session_and_ship_info(
+            session=session, ship_info=ship_info, fn=core
+        )
+
+    def update_ShipNavigation(self, session=None, ship_info=None):
+        def core(session, ship_info):
+            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+            if not ship:
+                logger.warning(f"Ship {self.shipSymbol} not found in DB.")
+                return
+            ship_nav = session.query(ShipNavigation).filter_by(ship_id=ship.id).first()
+            nav_data = ship_info.get("data", {}).get("nav", {})
+            route_data = nav_data.get("route", {})
+            origin_system = route_data.get("origin")
+            destination_system = route_data.get("destination")
+            if ship_nav:
+                ship_nav.origin_waypoint = origin_system.get("symbol")
+                ship_nav.origin_system = origin_system.get("systemSymbol")
+                ship_nav.destination_waypoint = destination_system.get("symbol")
+                ship_nav.destination_system = destination_system.get("systemSymbol")
+                ship_nav.departure_time = route_data.get("departureTime")
+                ship_nav.arrival_time = route_data.get("arrival")
+                ship_nav.status = nav_data.get("status")
+                ship_nav.flight_mode = nav_data.get("flightMode")
+
+            else:
+                ship_nav = ShipNavigation(
+                    ship_id=ship.id,
+                    origin_waypoint=origin_system.get("symbol"),
+                    origin_system=origin_system.get("systemSymbol"),
+                    destination_waypoint=destination_system.get("symbol"),
+                    destination_system=destination_system.get("systemSymbol"),
+                    departure_time=route_data.get("departureTime"),
+                    arrival_time=route_data.get("arrival"),
+                    status=nav_data.get("status"),
+                    flightMode=nav_data.get("flightMode"),
+                )
+                session.add(ship_nav)
+            session.flush()
+
+        return self.with_session_and_ship_info(
+            session=session, ship_info=ship_info, fn=core
+        )
+
+    def update_ShipFuel(self, session=None, ship_info=None):
+        def core(session, ship_info):
+            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+            if not ship:
+                logger.warning(f"Ship {self.shipSymbol} not found in DB.")
+                return
+
+            fuel_data = ship_info.get("data", {}).get("fuel", {})
+            consumed_data = fuel_data.get("consumed", {})
+
+            if not fuel_data:
+                logger.warning(f"No fuel data found for ship {self.shipSymbol}.")
+                return
+
+            ship_fuel = session.query(ShipFuel).filter_by(ship_id=ship.id).first()
+
+            if ship_fuel:
+                ship_fuel.current = fuel_data.get("current", 0)
+                ship_fuel.capacity = fuel_data.get("capacity", 0)
+                ship_fuel.consumed = consumed_data.get("amount", 0)
+            else:
+                ship_fuel = ShipFuel(
+                    ship_id=ship.id,
+                    current=fuel_data.get("current", 0),
+                    capacity=fuel_data.get("capacity", 0),
+                    consumed=consumed_data.get("amount", 0),
+                )
+                session.add(ship_fuel)
+
+            session.flush()
+
+        return self.with_session_and_ship_info(
+            session=session, ship_info=ship_info, fn=core
+        )
+
+    def update_ShipCargo(self, session=None, ship_info=None):
+        def core(session, ship_info):
+            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+            if not ship:
+                logger.warning(f"Ship {self.shipSymbol} not found in DB.")
+                return
+
+            cargo_data = ship_info.get("data", {}).get("cargo", {})
+            if not cargo_data:
+                logger.warning(f"No cargo data found for ship {self.shipSymbol}.")
+                return
+
+            # Extract and format inventory as list of strings (e.g. symbols or names)
+            inventory_items = cargo_data.get("inventory", [])
+            inventory_symbols = [
+                item.get("symbol") for item in inventory_items if "symbol" in item
+            ]
+
+            ship_cargo = session.query(ShipCargo).filter_by(ship_id=ship.id).first()
+
+            if ship_cargo:
+                ship_cargo.current = cargo_data.get("units", 0)
+                ship_cargo.capacity = cargo_data.get("capacity", 0)
+                ship_cargo.inventory = inventory_symbols
+            else:
+                ship_cargo = ShipCargo(
+                    ship_id=ship.id,
+                    current=cargo_data.get("units", 0),
+                    capacity=cargo_data.get("capacity", 0),
+                    inventory=inventory_symbols,
+                )
+                session.add(ship_cargo)
+
+            session.flush()
+
+        return self.with_session_and_ship_info(
+            session=session, ship_info=ship_info, fn=core
+        )
+
+    def update_ShipCrew(self, session=None, ship_info=None):
+        def core(session, ship_info):
+            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+            if not ship:
+                logger.warning(f"Ship {self.shipSymbol} not found in DB.")
+                return
+
+            crew_data = ship_info.get("data", {}).get("crew", {})
+            if not crew_data:
+                logger.warning(f"No crew data found for ship {self.shipSymbol}.")
+                return
+
+            ship_crew = session.query(ShipCrew).filter_by(ship_id=ship.id).first()
+
+            if ship_crew:
+                ship_crew.current = crew_data.get("current", 0)
+                ship_crew.capacity = crew_data.get("capacity", 0)
+                ship_crew.required = crew_data.get("required", 0)
+                ship_crew.rotation = crew_data.get("rotation", 0)
+                ship_crew.morale = crew_data.get("morale", 0)
+                ship_crew.wages = crew_data.get("wages", 0)
+            else:
+                ship_crew = ShipCrew(
+                    ship_id=ship.id,
+                    current=crew_data.get("current", 0),
+                    capacity=crew_data.get("capacity", 0),
+                    required=crew_data.get("required", 0),
+                    rotation=crew_data.get("rotation", 0),
+                    morale=crew_data.get("morale", 0),
+                    wages=crew_data.get("wages", 0),
+                )
+                session.add(ship_crew)
+
+            session.flush()
+
+        return self.with_session_and_ship_info(
+            session=session, ship_info=ship_info, fn=core
+        )
+
+    def update_ShipFrame(self, session=None, ship_info=None):
+        def core(session, ship_info):
+            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+            if not ship:
+                logger.warning(f"Ship {self.shipSymbol} not found in DB.")
+                return
+
+            frame_data = ship_info.get("data", {}).get("frame", {})
+            if not frame_data:
+                logger.warning(f"No frame data found for ship {self.shipSymbol}.")
+                return
+
+            requirements = frame_data.get("requirements", {})
+            ship_frame = session.query(ShipFrame).filter_by(ship_id=ship.id).first()
+
+            if ship_frame:
+                ship_frame.symbol = frame_data.get("symbol", "")
+                ship_frame.name = frame_data.get("name", "")
+                ship_frame.condition = frame_data.get("condition", 0)
+                ship_frame.integrity = frame_data.get("integrity", 0)
+                ship_frame.module_slots = frame_data.get("moduleSlots", 0)
+                ship_frame.mounting_points = frame_data.get("mountingPoints", 0)
+                ship_frame.power_required = requirements.get("power", 0)
+                ship_frame.crew_required = requirements.get("crew", 0)
+            else:
+                ship_frame = ShipFrame(
+                    ship_id=ship.id,
+                    symbol=frame_data.get("symbol", ""),
+                    name=frame_data.get("name", ""),
+                    condition=frame_data.get("condition", 0),
+                    integrity=frame_data.get("integrity", 0),
+                    module_slots=frame_data.get("moduleSlots", 0),
+                    mounting_points=frame_data.get("mountingPoints", 0),
+                    power_required=requirements.get("power", 0),
+                    crew_required=requirements.get("crew", 0),
+                )
+                session.add(ship_frame)
+
+            session.flush()
+
+        return self.with_session_and_ship_info(
+            session=session, ship_info=ship_info, fn=core
+        )
+
+    def update_ShipReactor(self, session=None, ship_info=None):
+        def core(session, ship_info):
+            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+            if not ship:
+                logger.warning(f"Ship {self.shipSymbol} not found in DB.")
+                return
+
+            reactor_data = ship_info.get("data", {}).get("reactor", {})
+            if not reactor_data:
+                logger.warning(f"No reactor data found for ship {self.shipSymbol}.")
+                return
+
+            requirements = reactor_data.get("requirements", {})
+            ship_reactor = session.query(ShipReactor).filter_by(ship_id=ship.id).first()
+
+            if ship_reactor:
+                ship_reactor.symbol = reactor_data.get("symbol", "")
+                ship_reactor.name = reactor_data.get("name", "")
+                ship_reactor.condition = reactor_data.get("condition", 0)
+                ship_reactor.integrity = reactor_data.get("integrity", 0)
+                ship_reactor.power_output = reactor_data.get("powerOutput", 0)
+                ship_reactor.crew_required = requirements.get("crew", 0)
+                ship_reactor.quality = reactor_data.get("quality", 0)
+            else:
+                ship_reactor = ShipReactor(
+                    ship_id=ship.id,
+                    symbol=reactor_data.get("symbol", ""),
+                    name=reactor_data.get("name", ""),
+                    condition=reactor_data.get("condition", 0),
+                    integrity=reactor_data.get("integrity", 0),
+                    power_output=reactor_data.get("powerOutput", 0),
+                    crew_required=requirements.get("crew", 0),
+                    quality=reactor_data.get("quality", 0),
+                )
+                session.add(ship_reactor)
+
+            session.flush()
+
+        return self.with_session_and_ship_info(
+            session=session, ship_info=ship_info, fn=core
+        )
+
+    def update_ShipEngine(self, session=None, ship_info=None):
+        def core(session, ship_info):
+            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+            if not ship:
+                logger.warning(f"Ship {self.shipSymbol} not found in DB.")
+                return
+
+            engine_data = ship_info.get("data", {}).get("engine", {})
+            if not engine_data:
+                logger.warning(f"No engine data found for ship {self.shipSymbol}.")
+                return
+
+            requirements = engine_data.get("requirements", {})
+            ship_engine = session.query(ShipEngine).filter_by(ship_id=ship.id).first()
+
+            if ship_engine:
+                ship_engine.symbol = engine_data.get("symbol", "")
+                ship_engine.name = engine_data.get("name", "")
+                ship_engine.condition = engine_data.get("condition", 0)
+                ship_engine.integrity = engine_data.get("integrity", 0)
+                ship_engine.speed = engine_data.get("speed", 0)
+                ship_engine.power_required = requirements.get("power", 0)
+                ship_engine.crew_required = requirements.get("crew", 0)
+                ship_engine.quality = engine_data.get("quality", 0)
+            else:
+                ship_engine = ShipEngine(
+                    ship_id=ship.id,
+                    symbol=engine_data.get("symbol", ""),
+                    name=engine_data.get("name", ""),
+                    condition=engine_data.get("condition", 0),
+                    integrity=engine_data.get("integrity", 0),
+                    speed=engine_data.get("speed", 0),
+                    power_required=requirements.get("power", 0),
+                    crew_required=requirements.get("crew", 0),
+                    quality=engine_data.get("quality", 0),
+                )
+                session.add(ship_engine)
+
+            session.flush()
+
+        return self.with_session_and_ship_info(
+            session=session, ship_info=ship_info, fn=core
+        )
+
+    def update_ShipCooldown(self, session=None, ship_info=None):
+        def core(session, ship_info):
+            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+            if not ship:
+                logger.warning(f"Ship {self.shipSymbol} not found in DB.")
+                return
+
+            cooldown_data = ship_info.get("data", {}).get("cooldown", {})
+            if not cooldown_data:
+                logger.warning(f"No cooldown data found for ship {self.shipSymbol}.")
+                return
+
+            ship_cooldown = (
+                session.query(ShipCooldown).filter_by(ship_id=ship.id).first()
+            )
+
+            if ship_cooldown:
+                ship_cooldown.total_seconds = cooldown_data.get("totalSeconds", 0)
+                ship_cooldown.remaining_seconds = cooldown_data.get(
+                    "remainingSeconds", 0
+                )
+            else:
+                ship_cooldown = ShipCooldown(
+                    ship_id=ship.id,
+                    total_seconds=cooldown_data.get("totalSeconds", 0),
+                    remaining_seconds=cooldown_data.get("remainingSeconds", 0),
+                )
+                session.add(ship_cooldown)
+
+            session.flush()
+
+        return self.with_session_and_ship_info(
+            session=session, ship_info=ship_info, fn=core
+        )
+
+    def update_ShipTelemetry(self, session=None, ship_info=None):
+        def core(session, ship_info):
+            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+            if not ship:
+                logger.warning(f"Ship {self.shipSymbol} not found in DB.")
+                return
+
+            data = ship_info.get("data", {})
+
+            # Update or create each subcomponent and get their IDs
+            def get_or_create_subcomponent(model, data_key):
+                sub_data = data.get(data_key)
+                if not sub_data:
+                    return None
+
+                # Log the raw data
+                logger.debug(
+                    f"[DEBUG] Creating or updating {model.__name__} with: {sub_data}"
+                )
+
+                # Fix nested dict issue for ShipFuel
+                if data_key == "fuel" and isinstance(sub_data.get("consumed"), dict):
+                    logger.debug(
+                        f"[DEBUG] Fuel consumed before fix: {sub_data['consumed']}"
+                    )
+                    sub_data["consumed"] = sub_data["consumed"].get("amount", 0)
+                    logger.debug(
+                        f"[DEBUG] Fuel consumed after fix: {sub_data['consumed']}"
+                    )
+
+                obj = session.query(model).filter_by(ship_id=ship.id).first()
+                if obj:
+                    for key, value in sub_data.items():
+                        setattr(obj, key, value)
+                else:
+                    obj = model(ship_id=ship.id, **sub_data)
+                    session.add(obj)
+
+                session.flush()
+                return obj.id
+
+            fuel_id = get_or_create_subcomponent(ShipFuel, "fuel")
+            cargo_id = get_or_create_subcomponent(ShipCargo, "cargo")
+            crew_id = get_or_create_subcomponent(ShipCrew, "crew")
+            frame_id = get_or_create_subcomponent(ShipFrame, "frame")
+            reactor_id = get_or_create_subcomponent(ShipReactor, "reactor")
+            engine_id = get_or_create_subcomponent(ShipEngine, "engine")
+            cooldown_id = get_or_create_subcomponent(ShipCooldown, "cooldown")
+
+            # Create new ShipTelemetry record linking the subcomponents
+            telemetry = ShipTelemetry(
+                ship_id=ship.id,
+                timestamp=datetime.utcnow(),
+                fuel_id=fuel_id,
+                cargo_id=cargo_id,
+                crew_id=crew_id,
+                frame_id=frame_id,
+                reactor_id=reactor_id,
+                engine_id=engine_id,
+                cooldown_id=cooldown_id,
+            )
+            session.add(telemetry)
+            session.flush()
+
+        return self.with_session_and_ship_info(
+            session=session, ship_info=ship_info, fn=core
+        )
+
+    def update_all_telemetry_subcomponent(self, session=None, ship_info=None):
+        def core(session, ship_info):
+            update_tasks = [
+                ("ShipFuel", self.update_ShipFuel),
+                ("ShipCargo", self.update_ShipCargo),
+                ("ShipCrew", self.update_ShipCrew),
+                ("ShipFrame", self.update_ShipFrame),
+                ("ShipReactor", self.update_ShipReactor),
+                ("ShipEngine", self.update_ShipEngine),
+                ("ShipCooldown", self.update_ShipCooldown),
+                ("ShipNavigation", self.update_ShipNavigation),
+                ("ShipTelemetry", self.update_ShipTelemetry),
+            ]
+
+            for name, func in update_tasks:
+                try:
+                    func(session=session, ship_info=ship_info)
+                except Exception as e:
+                    logger.error(
+                        f"Failed to update {name} for ship {self.shipSymbol}: {e}"
+                    )
+
+        return self.with_session_and_ship_info(
+            session=session, ship_info=ship_info, fn=core
         )
 
     # 🚀 Ship Status & Information
