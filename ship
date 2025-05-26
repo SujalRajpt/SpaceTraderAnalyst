@@ -1,0 +1,374 @@
+[1mdiff --git a/src/objects/ship.py b/src/objects/ship.py[m
+[1mindex 3d464a9..a18b80d 100644[m
+[1m--- a/src/objects/ship.py[m
+[1m+++ b/src/objects/ship.py[m
+[36m@@ -1,40 +1,649 @@[m
+ from src.utils.config import BASE_URL[m
+ from src.api.base_api import BaseAPI[m
+[32m+[m[32mfrom src.utils.logger import logger[m
+[32m+[m[32mfrom src.db.db_session import get_session[m
+[32m+[m[32mfrom src.db.models import ([m
+[32m+[m[32m    Ship,[m
+[32m+[m[32m    Agent,[m
+[32m+[m[32m    Module,[m
+[32m+[m[32m    Mount,[m
+[32m+[m[32m    ShipNavigation,[m
+[32m+[m[32m    ShipFuel,[m
+[32m+[m[32m    ShipCargo,[m
+[32m+[m[32m    ShipCrew,[m
+[32m+[m[32m    ShipFrame,[m
+[32m+[m[32m    ShipReactor,[m
+[32m+[m[32m    ShipEngine,[m
+[32m+[m[32m    ShipCooldown,[m
+[32m+[m[32m    ShipTelemetry,[m
+[32m+[m[32m)[m
+[32m+[m[32mfrom datetime import datetime[m
+ [m
+ [m
+ class SpaceShip(BaseAPI):[m
+[31m-    def __init__(self, player, shipSymbol):[m
+[31m-        super().__init__(player.agent_token)[m
+[32m+[m[32m    def __init__(self, shipSymbol, player=None, agent_token=None):[m
+[32m+[m[32m        if not (player or agent_token):[m
+[32m+[m[32m            raise ValueError("Either player or agent_token must be provided.")[m
+[32m+[m
+[32m+[m[32m        token = player.agent_token if player else agent_token[m
+[32m+[m[32m        super().__init__(token)[m
+[32m+[m
+         self.player = player[m
+         self.shipSymbol = shipSymbol[m
+[31m-        self.base_ship_url = f"{BASE_URL}/my/ships/{self.shipSymbol}"[m
+[31m-        self.origin = "Unknown"[m
+[31m-        self.destination = "Unknown"[m
+[31m-        self.arrival_time = "Unknown"[m
+[31m-        self.departure_time = "Unknown"[m
+[31m-        self.cache_ship_info()[m
+[31m-        self.status = "Stalled" if self.origin == self.destination else "Moving"[m
+[31m-[m
+[31m-    def cache_ship_info(self):[m
+[31m-        try:[m
+[31m-            route = ([m
+[31m-                self.get_ship_status().get("data", {}).get("nav", {}).get("route", {})[m
+[32m+[m[32m        self.base_ship_url = f"{BASE_URL}/my/ships/{shipSymbol}"[m
+[32m+[m
+[32m+[m[32m        self.factionSymbol = "Unknown"[m
+[32m+[m[32m        self.role = "Unknown"[m
+[32m+[m[32m        self.status = "Unknown"[m
+[32m+[m[32m        self.flightMode = "Unknown"[m
+[32m+[m[32m        self.systemSymbol = "Unknown"[m
+[32m+[m[32m        self.waypointSymbol = "Unknown"[m
+[32m+[m[32m        self.speed = 0[m
+[32m+[m
+[32m+[m[32m    @classmethod[m
+[32m+[m[32m    def load_or_create(cls, player, shipSymbol, session=None):[m
+[32m+[m[32m        if session is None:[m
+[32m+[m[32m            with get_session() as new_session:[m
+[32m+[m[32m                return cls.load_or_create(player, shipSymbol, session=new_session)[m
+[32m+[m
+[32m+[m[32m        ship_obj = cls(shipSymbol, player=player)[m
+[32m+[m[32m        ship = session.query(Ship).filter_by(symbol=shipSymbol).first()[m
+[32m+[m
+[32m+[m[32m        if ship:[m
+[32m+[m[32m            # Load from DB[m
+[32m+[m[32m            ship_obj.factionSymbol = ship.factionSymbol[m
+[32m+[m[32m            ship_obj.role = ship.role[m
+[32m+[m[32m            ship_obj.status = ship.status[m
+[32m+[m[32m            ship_obj.flightMode = ship.flightMode[m
+[32m+[m[32m            ship_obj.systemSymbol = ship.systemSymbol[m
+[32m+[m[32m            ship_obj.waypointSymbol = ship.waypointSymbol[m
+[32m+[m[32m            ship_obj.speed = ship.speed[m
+[32m+[m[32m            logger.info(f"Loaded ship {shipSymbol} from DB.")[m
+[32m+[m
+[32m+[m[32m        # Always fetch fresh data and update DB[m
+[32m+[m[32m        logger.info(f"Updating ship {shipSymbol} from API.")[m
+[32m+[m[32m        ship_obj.update_from_api()[m
+[32m+[m[32m        ship_obj.save_to_db(session=session)[m
+[32m+[m
+[32m+[m[32m        return ship_obj[m
+[32m+[m
+[32m+[m[32m    def save_to_db(self, session):[m
+[32m+[m[32m        ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()[m
+[32m+[m
+[32m+[m[32m        if self.player:[m
+[32m+[m[32m            agent = ([m
+[32m+[m[32m                session.query(Agent)[m
+[32m+[m[32m                .filter_by(agent_token=self.player.agent_token)[m
+[32m+[m[32m                .first()[m
+             )[m
+[31m-        except Exception as e:[m
+[31m-            print(f"Error fetching ship status: {e}")[m
+[31m-            return[m
+[31m-        self.origin = route.get("origin", {}).get("symbol")[m
+[31m-        self.destination = route.get("destination", {}).get("symbol")[m
+[31m-        self.arrival_time = route.get("arrival")[m
+[31m-        self.departure_time = route.get("departureTime")[m
+[32m+[m[32m        else:[m
+[32m+[m[32m            agent = session.query(Agent).filter_by(agent_token=self.agent_token).first()[m
+[32m+[m
+[32m+[m[32m        if not agent:[m
+[32m+[m[32m            raise ValueError("Associated Agent not found in DB.")[m
+[32m+[m
+[32m+[m[32m        if not ship:[m
+[32m+[m[32m            ship = Ship([m
+[32m+[m[32m                agent_id=agent.id,[m
+[32m+[m[32m                symbol=self.shipSymbol,[m
+[32m+[m[32m                factionSymbol=self.factionSymbol,[m
+[32m+[m[32m                role=self.role,[m
+[32m+[m[32m                status=self.status,[m
+[32m+[m[32m                flightMode=self.flightMode,[m
+[32m+[m[32m                systemSymbol=self.systemSymbol,[m
+[32m+[m[32m                waypointSymbol=self.waypointSymbol,[m
+[32m+[m[32m                speed=self.speed,[m
+[32m+[m[32m            )[m
+[32m+[m[32m        else:[m
+[32m+[m[32m            ship.factionSymbol = self.factionSymbol[m
+[32m+[m[32m            ship.role = self.role[m
+[32m+[m[32m            ship.status = self.status[m
+[32m+[m[32m            ship.flightMode = self.flightMode[m
+[32m+[m[32m            ship.systemSymbol = self.systemSymbol[m
+[32m+[m[32m            ship.waypointSymbol = self.waypointSymbol[m
+[32m+[m[32m            ship.speed = self.speed[m
+[32m+[m
+[32m+[m[32m        session.add(ship)[m
+[32m+[m[32m        session.flush()[m
+[32m+[m[32m        ship_info = self.get_ship_status()[m
+[32m+[m[32m        self.update_modules(session=session, ship_info=ship_info)[m
+[32m+[m[32m        self.update_mounts(session=session, ship_info=ship_info)[m
+[32m+[m[32m        self.update_all_telemetry_subcomponent(session=session, ship_info=ship_info)[m
+[32m+[m[32m        logger.info(f"Saved ship {self.shipSymbol} to DB.")[m
+[32m+[m
+[32m+[m[32m    def update_from_api(self):[m
+[32m+[m[32m        """Fetches and updates ship info from the API."""[m
+[32m+[m[32m        ship_info = self.get_ship_status()["data"][m
+[32m+[m[32m        if ship_info:[m
+[32m+[m[32m            # Update ship attributes[m
+[32m+[m[32m            self.factionSymbol = ship_info["registration"].get([m
+[32m+[m[32m                "factionSymbol", "UNKNOWN"[m
+[32m+[m[32m            )[m
+[32m+[m[32m            self.role = ship_info["registration"].get("role", "UNKNOWN")[m
+[32m+[m[32m            self.status = ship_info["nav"].get("status", "UNKNOWN")[m
+[32m+[m[32m            self.flightMode = ship_info["nav"].get("flightMode", "UNKNOWN")[m
+[32m+[m[32m            self.systemSymbol = ship_info["nav"].get("systemSymbol", "UNKNOWN")[m
+[32m+[m[32m            self.waypointSymbol = ship_info["nav"].get("waypointSymbol", "UNKNOWN")[m
+[32m+[m[32m            self.speed = ship_info["engine"].get("speed", 0)[m
+[32m+[m
+[32m+[m[32m        else:[m
+[32m+[m[32m            logger.warning("Ship data not found from API.")[m
+ [m
+     def __str__(self):[m
+         return ([m
+[31m-            f"🚀 Ship: {self.shipSymbol}\n"[m
+[31m-            f"🌍 Origin System: {self.origin}\n"[m
+[31m-            f"📍 Destination System: {self.destination}\n"[m
+[31m-            f"⏳ Departure Time: {self.departure_time}\n"[m
+[31m-            f"🛬 Arrival Time: {self.arrival_time}"[m
+[32m+[m[32m            f"SpaceShip '{self.shipSymbol}':\n"[m
+[32m+[m[32m            f"  Faction: {self.factionSymbol}\n"[m
+[32m+[m[32m            f"  Role: {self.role}\n"[m
+[32m+[m[32m            f"  Status: {self.status}\n"[m
+[32m+[m[32m            f"  Flight Mode: {self.flightMode}\n"[m
+[32m+[m[32m            f"  Location: System '{self.systemSymbol}', Waypoint '{self.waypointSymbol}'\n"[m
+[32m+[m[32m            f"  Speed: {self.speed} units\n"[m
+[32m+[m[32m            f"  Owned by Player: {self.player.symbol if self.player else 'Unknown'}"[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m    def with_session_and_ship_info(self, session=None, ship_info=None, fn=None):[m
+[32m+[m[32m        def task(s):[m
+[32m+[m[32m            ship_info_resolved = ship_info or self.get_ship_status()["data"][m
+[32m+[m[32m            return fn(s, ship_info_resolved)[m
+[32m+[m
+[32m+[m[32m        if session:[m
+[32m+[m[32m            return task(session)[m
+[32m+[m
+[32m+[m[32m        with get_session() as new_session:[m
+[32m+[m[32m            return task(new_session)[m
+[32m+[m
+[32m+[m[32m    def update_modules(self, session=None, ship_info=None):[m
+[32m+[m[32m        def core(session, ship_info):[m
+[32m+[m[32m            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()[m
+[32m+[m[32m            if not ship:[m
+[32m+[m[32m                logger.warning(f"Ship {self.shipSymbol} not found in DB.")[m
+[32m+[m[32m                return[m
+[32m+[m
+[32m+[m[32m            for mod_data in ship_info["data"]["modules"]:[m
+[32m+[m[32m                existing_module = ([m
+[32m+[m[32m                    session.query(Module)[m
+[32m+[m[32m                    .filter([m
+[32m+[m[32m                        Module.ship_id == ship.id,[m
+[32m+[m[32m                        Module.symbol == mod_data.get("symbol"),[m
+[32m+[m[32m                    )[m
+[32m+[m[32m                    .first()[m
+[32m+[m[32m                )[m
+[32m+[m
+[32m+[m[32m                requirements = mod_data.get("requirements", {})[m
+[32m+[m
+[32m+[m[32m                if existing_module:[m
+[32m+[m[32m                    existing_module.power = requirements.get("power")[m
+[32m+[m[32m                    existing_module.crew = requirements.get("crew")[m
+[32m+[m[32m                    existing_module.slots = requirements.get("slots")[m
+[32m+[m[32m                    existing_module.capacity = requirements.get("capacity")[m
+[32m+[m[32m                else:[m
+[32m+[m[32m                    new_module = Module([m
+[32m+[m[32m                        ship_id=ship.id,[m
+[32m+[m[32m                        name=mod_data.get("name"),[m
+[32m+[m[32m                        description=mod_data.get("description"),[m
+[32m+[m[32m                        symbol=mod_data.get("symbol"),[m
+[32m+[m[32m                        power=requirements.get("power"),[m
+[32m+[m[32m                        crew=requirements.get("crew"),[m
+[32m+[m[32m                        slots=requirements.get("slots"),[m
+[32m+[m[32m                        capacity=requirements.get("capacity"),[m
+[32m+[m[32m                    )[m
+[32m+[m[32m                    session.add(new_module)[m
+[32m+[m
+[32m+[m[32m            session.flush()[m
+[32m+[m
+[32m+[m[32m        return self.with_session_and_ship_info([m
+[32m+[m[32m            session=session, ship_info=ship_info, fn=core[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m    def update_mounts(self, session=None, ship_info=None):[m
+[32m+[m[32m        def core(session, ship_info):[m
+[32m+[m[32m            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()[m
+[32m+[m[32m            if not ship:[m
+[32m+[m[32m                logger.warning(f"Ship {self.shipSymbol} not found in DB.")[m
+[32m+[m[32m                return[m
+[32m+[m[32m            for mount_data in ship_info["data"]["mounts"]:[m
+[32m+[m[32m                existing_mount = ([m
+[32m+[m[32m                    session.query(Mount)[m
+[32m+[m[32m                    .filter([m
+[32m+[m[32m                        Mount.ship_id == ship.id,[m
+[32m+[m[32m                        Mount.symbol == mount_data.get("symbol"),[m
+[32m+[m[32m                    )[m
+[32m+[m[32m                    .first()[m
+[32m+[m[32m                )[m
+[32m+[m
+[32m+[m[32m                requirements = mount_data.get("requirements", {})[m
+[32m+[m
+[32m+[m[32m                if existing_mount:[m
+[32m+[m[32m                    existing_mount.power = requirements.get("power")[m
+[32m+[m[32m                    existing_mount.crew = requirements.get("crew")[m
+[32m+[m[32m                else:[m
+[32m+[m[32m                    new_mount = Mount([m
+[32m+[m[32m                        ship_id=ship.id,[m
+[32m+[m[32m                        name=mount_data.get("name"),[m
+[32m+[m[32m                        description=mount_data.get("description"),[m
+[32m+[m[32m                        symbol=mount_data.get("symbol"),[m
+[32m+[m[32m                        power=requirements.get("power"),[m
+[32m+[m[32m                        crew=requirements.get("crew"),[m
+[32m+[m[32m                        strength=mount_data.get("strength"),[m
+[32m+[m[32m                    )[m
+[32m+[m[32m                    session.add(new_mount)[m
+[32m+[m
+[32m+[m[32m            session.flush()[m
+[32m+[m
+[32m+[m[32m        return self.with_session_and_ship_info([m
+[32m+[m[32m            session=session, ship_info=ship_info, fn=core[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m    def update_ShipNavigation(self, session=None, ship_info=None):[m
+[32m+[m[32m        def core(session, ship_info):[m
+[32m+[m[32m            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()[m
+[32m+[m[32m            if not ship:[m
+[32m+[m[32m                logger.warning(f"Ship {self.shipSymbol} not found in DB.")[m
+[32m+[m[32m                return[m
+[32m+[m[32m            ship_nav = session.query(ShipNavigation).filter_by(ship_id=ship.id).first()[m
+[32m+[m[32m            nav_data = ship_info.get("data", {}).get("nav", {})[m
+[32m+[m[32m            route_data = nav_data.get("route", {})[m
+[32m+[m[32m            origin_system = route_data.get("origin")[m
+[32m+[m[32m            destination_system = route_data.get("destination")[m
+[32m+[m[32m            if ship_nav:[m
+[32m+[m[32m                ship_nav.origin_waypoint = origin_system.get("symbol")[m
+[32m+[m[32m                ship_nav.origin_system = origin_system.get("systemSymbol")[m
+[32m+[m[32m                ship_nav.destination_waypoint = destination_system.get("symbol")[m
+[32m+[m[32m                ship_nav.destination_system = destination_system.get("systemSymbol")[m
+[32m+[m[32m                ship_nav.departure_time = route_data.get("departureTime")[m
+[32m+[m[32m                ship_nav.arrival_time = route_data.get("arrival")[m
+[32m+[m[32m                ship_nav.status = nav_data.get("status")[m
+[32m+[m[32m                ship_nav.flight_mode = nav_data.get("flightMode")[m
+[32m+[m
+[32m+[m[32m            else:[m
+[32m+[m[32m                ship_nav = ShipNavigation([m
+[32m+[m[32m                    ship_id=ship.id,[m
+[32m+[m[32m                    origin_waypoint=origin_system.get("symbol"),[m
+[32m+[m[32m                    origin_system=origin_system.get("systemSymbol"),[m
+[32m+[m[32m                    destination_waypoint=destination_system.get("symbol"),[m
+[32m+[m[32m                    destination_system=destination_system.get("systemSymbol"),[m
+[32m+[m[32m                    departure_time=route_data.get("departureTime"),[m
+[32m+[m[32m                    arrival_time=route_data.get("arrival"),[m
+[32m+[m[32m                    status=nav_data.get("status"),[m
+[32m+[m[32m                    flightMode=nav_data.get("flightMode"),[m
+[32m+[m[32m                )[m
+[32m+[m[32m                session.add(ship_nav)[m
+[32m+[m[32m            session.flush()[m
+[32m+[m
+[32m+[m[32m        return self.with_session_and_ship_info([m
+[32m+[m[32m            session=session, ship_info=ship_info, fn=core[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m    def update_ShipFuel(self, session=None, ship_info=None):[m
+[32m+[m[32m        def core(session, ship_info):[m
+[32m+[m[32m            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()[m
+[32m+[m[32m            if not ship:[m
+[32m+[m[32m                logger.warning(f"Ship {self.shipSymbol} not found in DB.")[m
+[32m+[m[32m                return[m
+[32m+[m
+[32m+[m[32m            fuel_data = ship_info.get("data", {}).get("fuel", {})[m
+[32m+[m[32m            consumed_data = fuel_data.get("consumed", {})[m
+[32m+[m
+[32m+[m[32m            if not fuel_data:[m
+[32m+[m[32m                logger.warning(f"No fuel data found for ship {self.shipSymbol}.")[m
+[32m+[m[32m                return[m
+[32m+[m
+[32m+[m[32m            ship_fuel = session.query(ShipFuel).filter_by(ship_id=ship.id).first()[m
+[32m+[m
+[32m+[m[32m            if ship_fuel:[m
+[32m+[m[32m                ship_fuel.current = fuel_data.get("current", 0)[m
+[32m+[m[32m                ship_fuel.capacity = fuel_data.get("capacity", 0)[m
+[32m+[m[32m                ship_fuel.consumed = consumed_data.get("amount", 0)[m
+[32m+[m[32m            else:[m
+[32m+[m[32m                ship_fuel = ShipFuel([m
+[32m+[m[32m                    ship_id=ship.id,[m
+[32m+[m[32m                    current=fuel_data.get("current", 0),[m
+[32m+[m[32m                    capacity=fuel_data.get("capacity", 0),[m
+[32m+[m[32m                    consumed=consumed_data.get("amount", 0),[m
+[32m+[m[32m                )[m
+[32m+[m[32m                session.add(ship_fuel)[m
+[32m+[m
+[32m+[m[32m            session.flush()[m
+[32m+[m
+[32m+[m[32m        return self.with_session_and_ship_info([m
+[32m+[m[32m            session=session, ship_info=ship_info, fn=core[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m    def update_ShipCargo(self, session=None, ship_info=None):[m
+[32m+[m[32m        def core(session, ship_info):[m
+[32m+[m[32m            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()[m
+[32m+[m[32m            if not ship:[m
+[32m+[m[32m                logger.warning(f"Ship {self.shipSymbol} not found in DB.")[m
+[32m+[m[32m                return[m
+[32m+[m
+[32m+[m[32m            cargo_data = ship_info.get("data", {}).get("cargo", {})[m
+[32m+[m[32m            if not cargo_data:[m
+[32m+[m[32m                logger.warning(f"No cargo data found for ship {self.shipSymbol}.")[m
+[32m+[m[32m                return[m
+[32m+[m
+[32m+[m[32m            # Extract and format inventory as list of strings (e.g. symbols or names)[m
+[32m+[m[32m            inventory_items = cargo_data.get("inventory", [])[m
+[32m+[m[32m            inventory_symbols = [[m
+[32m+[m[32m                item.get("symbol") for item in inventory_items if "symbol" in item[m
+[32m+[m[32m            ][m
+[32m+[m
+[32m+[m[32m            ship_cargo = session.query(ShipCargo).filter_by(ship_id=ship.id).first()[m
+[32m+[m
+[32m+[m[32m            if ship_cargo:[m
+[32m+[m[32m                ship_cargo.current = cargo_data.get("units", 0)[m
+[32m+[m[32m                ship_cargo.capacity = cargo_data.get("capacity", 0)[m
+[32m+[m[32m                ship_cargo.inventory = inventory_symbols[m
+[32m+[m[32m            else:[m
+[32m+[m[32m                ship_cargo = ShipCargo([m
+[32m+[m[32m                    ship_id=ship.id,[m
+[32m+[m[32m                    current=cargo_data.get("units", 0),[m
+[32m+[m[32m                    capacity=cargo_data.get("capacity", 0),[m
+[32m+[m[32m                    inventory=inventory_symbols,[m
+[32m+[m[32m                )[m
+[32m+[m[32m                session.add(shi

@@ -11,10 +11,10 @@ class Player(BaseAPI):
     """Handles agent (player) actions in SpaceTraders."""
 
     # 1️⃣ Initialization & Dunder Methods
-    def __init__(self, symbol, agent_token: str, load_from_db=True) -> None:
+    def __init__(self, agent_token: str, load_from_db=True) -> None:
         super().__init__(agent_token)
         self.agent_token = agent_token
-        self.symbol = symbol
+        self.symbol = "UNKNOWN"
         self.current_system = "UNKNOWN"
         self.current_waypoint = "UNKNOWN"
         self.credit = 0

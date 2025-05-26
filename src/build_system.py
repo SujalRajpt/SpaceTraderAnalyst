@@ -12,6 +12,6 @@ with get_session() as session:
         agent_token = None
 
 
-player = Player(agent_token)
+player = Player(agent_token=agent_token)
 market = Market(player)
 market.build_database()

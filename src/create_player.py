@@ -12,4 +12,4 @@ def pretty_print(data):
     print(json.dumps(data, indent=4))
 
 
-player = Player.create_player("Sujal16")
+player = Player.create_player("sujal")
