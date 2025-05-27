@@ -41,16 +41,16 @@ class SpaceShip(BaseAPI):
         self.speed = 0
 
     @classmethod
-    def load_or_create(cls, player, shipSymbol, session=None):
+    def load_or_create(cls, player, shipSymbol, session=None, reload_from_db=False):
         if session is None:
             with get_session() as new_session:
                 return cls.load_or_create(player, shipSymbol, session=new_session)
 
-        ship_obj = cls(shipSymbol, player=player)
         ship = session.query(Ship).filter_by(symbol=shipSymbol).first()
 
-        if ship:
+        if ship and not reload_from_db:
             # Load from DB
+            ship_obj = cls(shipSymbol, player=player)
             ship_obj.factionSymbol = ship.factionSymbol
             ship_obj.role = ship.role
             ship_obj.status = ship.status
@@ -59,13 +59,18 @@ class SpaceShip(BaseAPI):
             ship_obj.waypointSymbol = ship.waypointSymbol
             ship_obj.speed = ship.speed
             logger.info(f"Loaded ship {shipSymbol} from DB.")
+            return ship_obj
 
         # Always fetch fresh data and update DB
         logger.info(f"Updating ship {shipSymbol} from API.")
-        ship_obj.update_from_api()
-        ship_obj.save_to_db(session=session)
-
-        return ship_obj
+        ship_obj = cls(shipSymbol, player=player)
+        try:
+            ship_obj.update_from_api()
+            ship_obj.save_to_db(session=session)
+            return ship_obj
+        except Exception as e:
+            logger.error(f"Failed to fetch and save ship {shipSymbol}: {e}")
+            raise
 
     def save_to_db(self, session):
         ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
@@ -726,3 +731,280 @@ class SpaceShip(BaseAPI):
 
     def get_scrap_estimate(self):
         return self._get_request(f"{self.base_ship_url}/scrap", auth_req=True)
+
+    # Get ship data from the database
+    def fetch_modules_from_db(self):
+        with get_session() as session:
+            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+            if not ship:
+                logger.warning(f"Ship {self.shipSymbol} not found in DB.")
+                return []
+
+            modules = session.query(Module).filter_by(ship_id=ship.id).all()
+            if not modules:
+                logger.warning(f"No modules found for ship {self.shipSymbol} in DB.")
+                return []
+
+            logger.info(
+                f"Fetched {len(modules)} modules for ship {self.shipSymbol} from DB."
+            )
+
+            # Convert ORM instances to plain dicts BEFORE returning
+            return [
+                {
+                    "id": module.id,
+                    "ship_id": ship.id,
+                    "name": module.name,
+                    "symbol": module.symbol,
+                    "power": module.power,
+                    "crew": module.crew,
+                    "slots": module.slots,
+                    "capacity": module.capacity,
+                }
+                for module in modules
+            ]
+
+    def fetch_mounts_from_db(self):
+        with get_session() as session:
+            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+            if not ship:
+                logger.warning(f"Ship {self.shipSymbol} not found in DB.")
+                return []
+
+            mounts = session.query(Mount).filter_by(ship_id=ship.id).all()
+            if not mounts:
+                logger.warning(f"No mounts found for ship {self.shipSymbol} in DB.")
+                return []
+
+            logger.info(
+                f"Fetched {len(mounts)} mounts for ship {self.shipSymbol} from DB."
+            )
+
+            # Convert ORM instances to plain dicts BEFORE returning
+            return [
+                {
+                    "id": mount.id,
+                    "ship_id": ship.id,
+                    "name": mount.name,
+                    "symbol": mount.symbol,
+                    "power": mount.power,
+                    "crew": mount.crew,
+                    "strength": mount.strength,
+                }
+                for mount in mounts
+            ]
+
+    def fetch_navigation_info_from_db(self):
+        with get_session() as session:
+            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+            if not ship:
+                logger.warning(f"Ship {self.shipSymbol} not found in DB.")
+                return None
+
+            ship_nav = session.query(ShipNavigation).filter_by(ship_id=ship.id).first()
+            if not ship_nav:
+                logger.warning(
+                    f"No navigation info found for ship {self.shipSymbol} in DB."
+                )
+                return None
+
+            logger.info(f"Fetched navigation info for ship {self.shipSymbol} from DB.")
+            return {
+                "origin_waypoint": ship_nav.origin_waypoint,
+                "origin_system": ship_nav.origin_system,
+                "destination_waypoint": ship_nav.destination_waypoint,
+                "destination_system": ship_nav.destination_system,
+                "departure_time": ship_nav.departure_time.isoformat()
+                if ship_nav.departure_time
+                else None,
+                "arrival_time": ship_nav.arrival_time.isoformat()
+                if ship_nav.arrival_time
+                else None,
+                "status": ship_nav.status,
+                "flight_mode": ship_nav.flightMode,
+            }
+
+    def fetch_shipfuel_from_db(self):
+        with get_session() as session:
+            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+            if not ship:
+                logger.warning(f"Ship {self.shipSymbol} not found in DB.")
+                return None
+
+            ship_fuel = session.query(ShipFuel).filter_by(ship_id=ship.id).first()
+            if not ship_fuel:
+                logger.warning(f"No fuel info found for ship {self.shipSymbol} in DB.")
+                return None
+
+            logger.info(f"Fetched fuel info for ship {self.shipSymbol} from DB.")
+            return {
+                "ship_id": ship.id,
+                "current": ship_fuel.current,
+                "capacity": ship_fuel.capacity,
+                "consumed": ship_fuel.consumed,
+                "last_updated": ship_fuel.last_updated.isoformat()
+                if ship_fuel.last_updated
+                else None,
+            }
+
+    def fetch_shipcargo_from_db(self):
+        with get_session() as session:
+            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+            if not ship:
+                logger.warning(f"Ship {self.shipSymbol} not found in DB.")
+                return None
+
+            ship_cargo = session.query(ShipCargo).filter_by(ship_id=ship.id).first()
+            if not ship_cargo:
+                logger.warning(f"No cargo info found for ship {self.shipSymbol} in DB.")
+                return None
+
+            logger.info(f"Fetched cargo info for ship {self.shipSymbol} from DB.")
+            return {
+                "ship_id": ship.id,
+                "current": ship_cargo.current,
+                "capacity": ship_cargo.capacity,
+                "inventory": ship_cargo.inventory,
+                "last_updated": ship_cargo.last_updated.isoformat()
+                if ship_cargo.last_updated
+                else None,
+            }
+
+    def fetch_shipcrew_from_db(self):
+        with get_session() as session:
+            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+            if not ship:
+                logger.warning(f"Ship {self.shipSymbol} not found in DB.")
+                return None
+
+            ship_crew = session.query(ShipCrew).filter_by(ship_id=ship.id).first()
+            if not ship_crew:
+                logger.warning(f"No crew info found for ship {self.shipSymbol} in DB.")
+                return None
+
+            logger.info(f"Fetched crew info for ship {self.shipSymbol} from DB.")
+            return {
+                "ship_id": ship.id,
+                "current": ship_crew.current,
+                "capacity": ship_crew.capacity,
+                "required": ship_crew.required,
+                "rotation": ship_crew.rotation,
+                "morale": ship_crew.morale,
+                "wages": ship_crew.wages,
+                "last_updated": ship_crew.last_updated.isoformat()
+                if ship_crew.last_updated
+                else None,
+            }
+
+    def fetch_shipframe_from_db(self):
+        with get_session() as session:
+            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+            if not ship:
+                logger.warning(f"Ship {self.shipSymbol} not found in DB.")
+                return None
+
+            ship_frame = session.query(ShipFrame).filter_by(ship_id=ship.id).first()
+            if not ship_frame:
+                logger.warning(f"No frame info found for ship {self.shipSymbol} in DB.")
+                return None
+
+            logger.info(f"Fetched frame info for ship {self.shipSymbol} from DB.")
+            return {
+                "ship_id": ship.id,
+                "symbol": ship_frame.symbol,
+                "name": ship_frame.name,
+                "condition": ship_frame.condition,
+                "integrity": ship_frame.integrity,
+                "module_slots": ship_frame.module_slots,
+                "mounting_points": ship_frame.mounting_points,
+                "power_required": ship_frame.power_required,
+                "crew_required": ship_frame.crew_required,
+                "last_updated": ship_frame.last_updated.isoformat()
+                if ship_frame.last_updated
+                else None,
+            }
+
+    def fetch_shipreactor_from_db(self):
+        with get_session() as session:
+            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+            if not ship:
+                logger.warning(f"Ship {self.shipSymbol} not found in DB.")
+                return None
+
+            ship_reactor = session.query(ShipReactor).filter_by(ship_id=ship.id).first()
+            if not ship_reactor:
+                logger.warning(
+                    f"No reactor info found for ship {self.shipSymbol} in DB."
+                )
+                return None
+
+            logger.info(f"Fetched reactor info for ship {self.shipSymbol} from DB.")
+            return {
+                "ship_id": ship.id,
+                "symbol": ship_reactor.symbol,
+                "name": ship_reactor.name,
+                "condition": ship_reactor.condition,
+                "integrity": ship_reactor.integrity,
+                "power_output": ship_reactor.power_output,
+                "crew_required": ship_reactor.crew_required,
+                "quality": ship_reactor.quality,
+                "last_updated": ship_reactor.last_updated.isoformat()
+                if ship_reactor.last_updated
+                else None,
+            }
+
+    def fetch_shipengine_from_db(self):
+        with get_session() as session:
+            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+            if not ship:
+                logger.warning(f"Ship {self.shipSymbol} not found in DB.")
+                return None
+
+            ship_engine = session.query(ShipEngine).filter_by(ship_id=ship.id).first()
+            if not ship_engine:
+                logger.warning(
+                    f"No engine info found for ship {self.shipSymbol} in DB."
+                )
+                return None
+
+            logger.info(f"Fetched engine info for ship {self.shipSymbol} from DB.")
+            return {
+                "ship_id": ship.id,
+                "symbol": ship_engine.symbol,
+                "name": ship_engine.name,
+                "condition": ship_engine.condition,
+                "integrity": ship_engine.integrity,
+                "speed": ship_engine.speed,
+                "power_required": ship_engine.power_required,
+                "crew_required": ship_engine.crew_required,
+                "quality": ship_engine.quality,
+                "last_updated": ship_engine.last_updated.isoformat()
+                if ship_engine.last_updated
+                else None,
+            }
+
+    def fetch_shipcooldown_from_db(self):
+        with get_session() as session:
+            ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+            if not ship:
+                logger.warning(f"Ship {self.shipSymbol} not found in DB.")
+                return None
+
+            ship_cooldown = (
+                session.query(ShipCooldown).filter_by(ship_id=ship.id).first()
+            )
+            if not ship_cooldown:
+                logger.warning(
+                    f"No cooldown info found for ship {self.shipSymbol} in DB."
+                )
+                return None
+
+            logger.info(f"Fetched cooldown info for ship {self.shipSymbol} from DB.")
+            return {
+                "ship_id": ship.id,
+                "total_seconds": ship_cooldown.total_seconds,
+                "remaining_seconds": ship_cooldown.remaining_seconds,
+                "last_updated": ship_cooldown.last_updated.isoformat()
+                if ship_cooldown.last_updated
+                else None,
+            }
