@@ -1,3 +1,4 @@
+from geoalchemy2.functions import ST_DWithin, ST_Distance
 from src.utils.config import BASE_URL
 from src.api.base_api import BaseAPI
 from src.utils.logger import logger
@@ -16,6 +17,8 @@ from src.db.models import (
     ShipEngine,
     ShipCooldown,
     ShipTelemetry,
+    System,
+    Waypoint,
 )
 from datetime import datetime
 
@@ -72,9 +75,13 @@ class SpaceShip(BaseAPI):
             logger.error(f"Failed to fetch and save ship {shipSymbol}: {e}")
             raise
 
-    def save_to_db(self, session):
-        ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
+    def save_to_db(self, session=None):
+        if not session:
+            with get_session() as new_session:
+                self.save_to_db(session=new_session)
+                return
 
+        ship = session.query(Ship).filter_by(symbol=self.shipSymbol).first()
         if self.player:
             agent = (
                 session.query(Agent)
@@ -667,71 +674,6 @@ class SpaceShip(BaseAPI):
         system = "-".join(waypoint.split("-")[:2])
         return self.player.fetch_market_data(system, waypoint)
 
-    # 🚀 Basic Actions
-    def get_in_orbit(self):
-        return self._post_request(f"{self.base_ship_url}/orbit", auth_req=True)
-
-    def dock(self):
-        return self._post_request(f"{self.base_ship_url}/dock", auth_req=True)
-
-    def change_flight_mode(self, flight_mode):
-        return self._patch_request(
-            f"{self.base_ship_url}/nav", {"flightMode": flight_mode}, auth_req=True
-        )
-
-    def refuel(self):
-        return self._post_request(
-            f"{self.base_ship_url}/refuel", {"fromCargo": True}, auth_req=True
-        )
-
-    def extract(self, survey=None):
-        data = {"survey": survey} if survey else None
-        return self._post_request(f"{self.base_ship_url}/extract", data, auth_req=True)
-
-    def survey(self):
-        return self._post_request(f"{self.base_ship_url}/survey", auth_req=True)
-
-    # 🚀 Travel & Navigation
-    def travel_to_waypoint(self, waypointSymbol):
-        self.status = "Moving"
-        self.destination = waypointSymbol
-        return self._post_request(
-            f"{self.base_ship_url}/navigate",
-            {"waypointSymbol": waypointSymbol},
-            auth_req=True,
-        )
-
-    def warp_to_system(self, waypointSymbol):
-        self.status = "Moving"
-        self.destination = waypointSymbol
-        return self._post_request(
-            f"{self.base_ship_url}/warp",
-            {"systemSymbol": waypointSymbol},
-            auth_req=True,
-        )
-
-    def jump_to_system(self, waypointSymbol):
-        self.status = "Moving"
-        self.destination = waypointSymbol
-        return self._post_request(
-            f"{self.base_ship_url}/jump",
-            {"systemSymbol": waypointSymbol},
-            auth_req=True,
-        )
-
-    # 🚀 Repair & Scrapping
-    def repair_ship(self):
-        return self._post_request(f"{self.base_ship_url}/repair", auth_req=True)
-
-    def get_repair_estimate(self):
-        return self._get_request(f"{self.base_ship_url}/repair", auth_req=True)
-
-    def scrap_ship(self):
-        return self._post_request(f"{self.base_ship_url}/scrap", auth_req=True)
-
-    def get_scrap_estimate(self):
-        return self._get_request(f"{self.base_ship_url}/scrap", auth_req=True)
-
     # Get ship data from the database
     def fetch_modules_from_db(self):
         with get_session() as session:
@@ -1008,3 +950,98 @@ class SpaceShip(BaseAPI):
                 if ship_cooldown.last_updated
                 else None,
             }
+
+    def get_distance_to_waypoint(self, my_waypoint=None, destination_waypoint=None):
+        """Calculates the distance to a given waypoint."""
+        with get_session() as session:
+            wp_a = (
+                session.query(Waypoint)
+                .filter(
+                    Waypoint.waypoint_symbol == (my_waypoint or self.waypointSymbol)
+                )
+                .first()
+            )
+            wp_b = (
+                session.query(Waypoint)
+                .filter(Waypoint.waypoint_symbol == destination_waypoint)
+                .first()
+            )
+
+            if not wp_a or not wp_b:
+                raise ValueError("One or both waypoints not found.")
+
+            return session.query(
+                ST_Distance(wp_a.waypoint_location, wp_b.waypoint_location)
+            ).scalar()
+
+    # 🚀 Basic Actions
+    def get_in_orbit(self):
+        try:
+            result = self._post_request(f"{self.base_ship_url}/orbit", auth_req=True)
+            if not result:
+                raise ValueError("Orbit request returned no result.")
+            self.update_from_api()
+            self.save_to_db()
+            return result
+        except Exception as e:
+            logger.error(f"Failed to enter orbit for ship {self.symbol}: {e}")
+            return None
+
+    def dock(self):
+        return self._post_request(f"{self.base_ship_url}/dock", auth_req=True)
+
+    def change_flight_mode(self, flight_mode):
+        return self._patch_request(
+            f"{self.base_ship_url}/nav", {"flightMode": flight_mode}, auth_req=True
+        )
+
+    def refuel(self):
+        return self._post_request(
+            f"{self.base_ship_url}/refuel", {"fromCargo": True}, auth_req=True
+        )
+
+    def extract(self, survey=None):
+        data = {"survey": survey} if survey else None
+        return self._post_request(f"{self.base_ship_url}/extract", data, auth_req=True)
+
+    def survey(self):
+        return self._post_request(f"{self.base_ship_url}/survey", auth_req=True)
+
+    # 🚀 Travel & Navigation
+    def travel_to_waypoint(self, waypointSymbol):
+        return self._post_request(
+            f"{self.base_ship_url}/navigate",
+            {"waypointSymbol": waypointSymbol},
+            auth_req=True,
+        )
+
+    def warp_to_system(self, waypointSymbol):
+        self.status = "Moving"
+        self.destination = waypointSymbol
+        return self._post_request(
+            f"{self.base_ship_url}/warp",
+            {"systemSymbol": waypointSymbol},
+            auth_req=True,
+        )
+
+    def jump_to_system(self, waypointSymbol):
+        self.status = "Moving"
+        self.destination = waypointSymbol
+        return self._post_request(
+            f"{self.base_ship_url}/jump",
+            {"systemSymbol": waypointSymbol},
+            auth_req=True,
+        )
+
+    # 🚀 Repair & Scrapping
+    def repair_ship(self):
+        return self._post_request(f"{self.base_ship_url}/repair", auth_req=True)
+
+    def get_repair_estimate(self):
+        return self._get_request(f"{self.base_ship_url}/repair", auth_req=True)
+
+    def scrap_ship(self):
+        return self._post_request(f"{self.base_ship_url}/scrap", auth_req=True)
+
+    def get_scrap_estimate(self):
+        return self._get_request(f"{self.base_ship_url}/scrap", auth_req=True)
