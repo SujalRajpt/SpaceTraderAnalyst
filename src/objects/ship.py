@@ -44,15 +44,18 @@ class SpaceShip(BaseAPI):
         self.speed = 0
 
     @classmethod
-    def load_or_create(cls, player, shipSymbol, session=None, reload_from_db=False):
+    def load_or_create(cls, player, shipSymbol, session=None, reload_from_api=False):
         if session is None:
             with get_session() as new_session:
-                return cls.load_or_create(player, shipSymbol, session=new_session)
+                return cls.load_or_create(
+                    player,
+                    shipSymbol,
+                    session=new_session,
+                    reload_from_api=reload_from_api,
+                )
 
         ship = session.query(Ship).filter_by(symbol=shipSymbol).first()
-
-        if ship and not reload_from_db:
-            # Load from DB
+        if ship and not reload_from_api:
             ship_obj = cls(shipSymbol, player=player)
             ship_obj.factionSymbol = ship.factionSymbol
             ship_obj.role = ship.role
@@ -64,7 +67,7 @@ class SpaceShip(BaseAPI):
             logger.info(f"Loaded ship {shipSymbol} from DB.")
             return ship_obj
 
-        # Always fetch fresh data and update DB
+        # Always fetch fresh data and update DB\
         logger.info(f"Updating ship {shipSymbol} from API.")
         ship_obj = cls(shipSymbol, player=player)
         try:

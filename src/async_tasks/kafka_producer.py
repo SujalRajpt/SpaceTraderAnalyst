@@ -1,10 +1,8 @@
 import json
 from confluent_kafka import Producer
+import hashlib
 
 producer = Producer({"bootstrap.servers": "localhost:9093"})
-
-
-player_id = 1
 
 
 def delivery_report(err, msg):
@@ -14,22 +12,18 @@ def delivery_report(err, msg):
         print(f"Message delivered to {msg.topic()} [{msg.partition()}]")
 
 
-def start_trip_event():
+def start_trip_event(player_token, destination_waypoint, shipsymbol):
     event = {
         "event_type": "start_trip",
-        "player_id": "player",
-        "ship_id": "ship_id",
-        "payload": {"destination": "destination"},
+        "destination_waypoint": destination_waypoint,
+        "player_token": player_token,
+        "ship_symbol": shipsymbol,
     }
 
     producer.produce(
         topic="game-events",
-        key=str(player_id),
+        key=hashlib.sha256(player_token.encode()).hexdigest(),
         value=json.dumps(event),
         callback=delivery_report,
     )
     producer.flush()
-
-
-if __name__ == "__main__":
-    start_trip_event()
