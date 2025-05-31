@@ -1,4 +1,3 @@
-````markdown
 # 🚀 SpaceTraders Game Simulator & Analyst
 
 This project is a **real-time space trading simulation engine** built on top of the [SpaceTraders.io](https://spacetraders.io/) API. It simulates player actions such as travel, mining, and market interaction with realistic delays and state tracking. The system also includes a database-backed backend with route planning, fuel tracking, and early support for predictive analytics.
@@ -41,7 +40,7 @@ This project is a **real-time space trading simulation engine** built on top of 
 ## 🧱 Tech Stack
 
 | Layer            | Tools / Libraries                             |
-|------------------|-----------------------------------------------|
+|------------------|----------------------------------------------|
 | Backend Engine   | Python, `asyncio`, `requests`, `FastAPI` (optional) |
 | Messaging Queue  | Kafka (Confluent-compatible)                  |
 | Database         | PostgreSQL with PostGIS extension             |
@@ -54,7 +53,6 @@ This project is a **real-time space trading simulation engine** built on top of 
 
 ## 🧬 Project Structure
 
-```bash
 .
 ├── src/
 │   ├── db/                  # Database models, PostGIS queries
@@ -65,98 +63,22 @@ This project is a **real-time space trading simulation engine** built on top of 
 ├── data/                    # Universe map, static system metadata
 ├── logs/                    # Game logs and travel history
 └── README.md
-````
-
----
-
-## ⚡ Example Travel Event
-
-```json
-{
-  "type": "start_trip",
-  "player_token": "your-agent-token",
-  "ship_symbol": "SUJAL-1",
-  "destination_waypoint": "X1-GP53-B39"
-}
-```
-
-The system:
-
-1. Undocks if needed.
-2. Checks ship fuel and travel status.
-3. Sends a `/navigate` POST request.
-4. Waits for arrival (e.g. `await asyncio.sleep(duration)`).
-5. Updates DB on arrival.
-
----
-
-## 🚧 Known Limitations
-
-* If fuel is insufficient, the SpaceTraders API returns a generic `400` error.
-* Fuel estimation isn't available via the API — we log historical data to build our own predictive model.
-* Currently lacks automatic refueling and cooldown management.
-
----
-
-## 🧠 Future Plans
-
-* 📊 **Fuel Predictor Model**: Estimate required fuel for trips based on historical records.
-* 🤖 **Autonomous Trader Bot**: Buy/sell goods intelligently across systems.
-* 🛰️ **Multi-Ship Event Management**: Handle fleets concurrently.
-* 📉 **Dashboard**: Web UI for ship stats, travel logs, and trade performance.
 
 ---
 
 ## 🚀 Getting Started
 
-### Requirements
+### Prerequisites
 
-* Python 3.10+
-* PostgreSQL with PostGIS
-* Docker (for Kafka setup)
+- Python 3.9+
+- Docker & Docker Compose
+- Kafka & Zookeeper (local or Confluent Cloud)
 
-### Setup
+### Installation
 
 ```bash
-# Install dependencies
+git clone https://github.com/your-username/SpaceTraderAnalyst.git
+cd SpaceTraderAnalyst
+python -m venv env
+source env/bin/activate  # or `.\env\Scripts\activate` on Windows
 pip install -r requirements.txt
-
-# Run Kafka + PostgreSQL via Docker
-docker-compose up -d
-
-# Start the Kafka consumer
-python src/main.py
-```
-
----
-
-## 🧑‍💻 Contributing
-
-1. Fork the repo
-2. Create a new feature branch
-3. Submit a PR
-
----
-
-## 📜 License
-
-MIT License
-
----
-
-## 📬 Contact
-
-Project by **@sujal**
-For suggestions, reach out via GitHub Issues or Discussions.
-
-```
-
----
-
-Let me know if you'd like me to:
-- Add images or diagrams (e.g. architecture flow).
-- Include sample `.env` setup or Docker Compose file.
-- Write up API reference for your `Player`, `Ship`, or `start_trip` logic.
-
-Want me to push this as a `README.md` file into your local directory or a GitHub repo?
-```
