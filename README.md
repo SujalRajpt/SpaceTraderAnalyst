@@ -51,20 +51,6 @@ This project is a **real-time space trading simulation engine** built on top of 
 
 ---
 
-## 🧬 Project Structure
-
-.
-├── src/
-│   ├── db/                  # Database models, PostGIS queries
-│   ├── events/              # Kafka event handlers (travel, mine, etc.)
-│   ├── objects/             # Core game objects (Ship, Player, Market)
-│   ├── utils/               # Geospatial, API, logging utilities
-│   └── main.py              # Kafka consumer and event router
-├── data/                    # Universe map, static system metadata
-├── logs/                    # Game logs and travel history
-└── README.md
-
----
 
 ## 🚀 Getting Started
 
