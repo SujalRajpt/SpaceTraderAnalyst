@@ -13,7 +13,7 @@ def pretty_print(data):
 
 
 with get_session() as session:
-    agent = session.query(Agent).filter_by(id=2).first()
+    agent = session.query(Agent).filter_by(id=1).first()
 
     if agent:
         agent_token = agent.agent_token

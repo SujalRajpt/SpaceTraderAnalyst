@@ -1,0 +1,37 @@
+{
+  "data": {
+    "nav": {
+      "systemSymbol": "X1-GP53",
+      "waypointSymbol": "X1-GP53-FZ5A",
+      "route": {
+        "destination": {
+          "symbol": "X1-GP53-FZ5A",
+          "type": "ENGINEERED_ASTEROID",
+          "systemSymbol": "X1-GP53",
+          "x": -12,
+          "y": -25
+        },
+        "origin": {
+          "symbol": "X1-GP53-A1",
+          "type": "PLANET",
+          "systemSymbol": "X1-GP53",
+          "x": -14,
+          "y": 22
+        },
+        "departureTime": "2025-05-28T14:53:03.454Z",
+        "arrival": "2025-05-28T14:53:51.454Z"
+      },
+      "status": "IN_TRANSIT",
+      "flightMode": "CRUISE"
+    },
+    "fuel": {
+      "current": 353,
+      "capacity": 400,
+      "consumed": {
+        "amount": 47,
+        "timestamp": "2025-05-28T14:53:03.457Z"
+      }
+    },
+    "events": []
+  }
+}

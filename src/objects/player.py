@@ -4,6 +4,7 @@ from src.utils.logger import logger
 from src.api.base_api import BaseAPI
 from src.db.db_session import get_session
 from src.db.models import Agent, Ship
+from src.objects.ship import SpaceShip
 
 
 class Player(BaseAPI):
@@ -13,6 +14,7 @@ class Player(BaseAPI):
     def __init__(self, agent_token: str, load_from_db=True) -> None:
         super().__init__(agent_token)
         self.agent_token = agent_token
+        self.symbol = "UNKNOWN"
         self.current_system = "UNKNOWN"
         self.current_waypoint = "UNKNOWN"
         self.credit = 0
@@ -47,14 +49,14 @@ class Player(BaseAPI):
             response.raise_for_status()
             response_data = response.json()
 
-            token = response_data.get("data", {}).get("token")
+            agent_token = response_data.get("data", {}).get("token")
 
-            if not token:
+            if not agent_token:
                 logger.error("Failed to retrieve player token from response.")
                 return None
 
             logger.info(f"Player '{symbol}' registered successfully.")
-            player = Player(token, load_from_db=False)
+            player = Player(symbol, agent_token, load_from_db=False)
             player.update_from_api()
             player.save_to_db()
             return player
@@ -102,24 +104,35 @@ class Player(BaseAPI):
                 agent.starting_faction = self.starting_faction
             else:
                 agent = Agent(
+                    symbol=self.symbol,
                     agent_token=self.agent_token,
                     current_system=self.current_system,
                     current_waypoint=self.current_waypoint,
                     credit=self.credit,
                     starting_faction=self.starting_faction,
                 )
-            session.add(agent)
-            session.flush()
+                session.add(agent)
 
+            session.flush()  # ensures agent.id is assigned
+            logger.debug(f"Agent saved with ID: {agent.id}")
+
+            # Save each ship with agent.id
             for shipSymbol in self.shipSymbols:
-                if not session.query(Ship).filter_by(symbol=shipSymbol).first():
-                    session.add(Ship(agent_id=agent.id, symbol=shipSymbol))
+                SpaceShip.load_or_create(
+                    player=self, shipSymbol=shipSymbol, session=session
+                )
 
     def load_from_db(self):
         """Loads player data from the database."""
         with get_session() as session:
-            agent = session.query(Agent).filter_by(agent_token=self.agent_token).first()
+            agent = session.query(Agent).filter_by(symbol=self.symbol).first()
+            if not agent:
+                agent = (
+                    session.query(Agent).filter_by(agent_token=self.agent_token).first()
+                )
+
             if agent:
+                self.symbol = agent.symbol
                 self.current_system = agent.current_system
                 self.current_waypoint = agent.current_waypoint
                 self.credit = agent.credit
