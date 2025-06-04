@@ -35,7 +35,6 @@ async def consume_event():
         event_type = event.get("event_type")
 
         if event_type == "start_trip":
-            # Dispatch async handler concurrently
             loop.create_task(handle_travel_event(event))
         else:
             print(f"Unknown event type: {event_type}")

@@ -11,7 +11,7 @@ from src.db.models import System, Waypoint, MarketTradeGoods, Ship
 from src.utils.logger import logger
 
 
-class Market:
+class Builder:
     def __init__(self, player):
         self.player = player
 

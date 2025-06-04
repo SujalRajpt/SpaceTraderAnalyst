@@ -1,9 +1,8 @@
 import asyncio
 from datetime import datetime
-from src.utils import logger
+from src.utils.logger import logger
 from src.db.models import ShipNavigation, Ship
 from src.db.db_session import get_session
-from src.utils.logger import logger
 from src.objects.player import Player
 from src.objects.ship import SpaceShip
 
@@ -12,26 +11,35 @@ async def handle_travel_event(event):
     player_token = event["player_token"]
     destination_waypoint = event["destination_waypoint"]
     ship_symbol = event["ship_symbol"]
-
-    player = Player(agent_token=player_token)
+    player = Player(player_token)
     ship = SpaceShip.load_or_create(player=player, shipSymbol=ship_symbol)
+    distance = ship.db.get_distance_to_waypoint(
+        destination_waypoint=destination_waypoint
+    )
+    logger.info(
+        f"ship is at {ship.waypointSymbol} and going to {destination_waypoint} at distance {distance}"
+    )
     if ship.waypointSymbol == destination_waypoint:
         logger.info("You are already at that location")
         return
     if ship.status == "DOCKED":
         logger.info("Going to Orbit")
-        ship.get_in_orbit()
+        ship.api.get_in_orbit()
+        ship.status = "IN_ORBIT"
+        ship.save_to_db(
+            update_all_subcomponents=False, update_modules=False, update_mounts=False
+        )
+        ship.telemetry.update_ShipNavigation()
+
     if ship.status == "IN_TRANSIT":
         logger.info(
             "Ship is already in transit. Please wait until the current travel is complete."
         )
         return
 
-    ship.save_to_db()
-
     ##api call
     logger.info(f"Initiating travel to {destination_waypoint}...")
-    response = ship.travel_to_waypoint(destination_waypoint)
+    response = ship.api.travel_to_waypoint(destination_waypoint)
     if response:
         ship.status = "IN_TRANSIT"
 
@@ -65,9 +73,13 @@ async def handle_travel_event(event):
         session.commit()
 
     logger.info(f"Sleeping for {travel_duration} seconds to simulate travel...")
-    print(f"ship status during trip is {ship.status}")
+    logger.info(f"ship status during trip is {ship.status}")
     await asyncio.sleep(travel_duration)
     ship.update_from_api()
     ship.save_to_db()
-    print(f"ship status after trip is {ship.status}")
+    logger.info(f"{ship.shipSymbol} is now in {ship.status}")
     logger.info(f"{ship.shipSymbol} has reached {ship.waypointSymbol}")
+
+
+async def handle_mining_event(event):
+    pass
