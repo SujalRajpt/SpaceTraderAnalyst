@@ -27,3 +27,19 @@ def start_trip_event(player_token, destination_waypoint, shipsymbol):
         callback=delivery_report,
     )
     producer.flush()
+
+
+def start_extract_event(player_token, shipsymbol):
+    event = {
+        "event_type": "start_extract",
+        "player_token": player_token,
+        "ship_symbol": shipsymbol,
+    }
+
+    producer.produce(
+        topic="game-events",
+        key=hashlib.sha256(player_token.encode()).hexdigest(),
+        value=json.dumps(event),
+        callback=delivery_report,
+    )
+    producer.flush()

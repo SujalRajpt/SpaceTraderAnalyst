@@ -81,5 +81,44 @@ async def handle_travel_event(event):
     logger.info(f"{ship.shipSymbol} has reached {ship.waypointSymbol}")
 
 
-async def handle_mining_event(event):
-    pass
+async def handle_extract_event(event):
+    # player_token = event["player_token"]
+    # ship_symbol = event["ship_symbol"]
+    # player = Player(player_token)
+    # ship = SpaceShip.load_or_create(player=player, shipSymbol=ship_symbol)
+
+    # if ship.status == "DOCKED":
+    #     logger.info("Going to Orbit")
+    #     ship.api.get_in_orbit()
+    #     ship.status = "IN_ORBIT"
+    #     ship.save_to_db(
+    #         update_all_subcomponents=False, update_modules=False, update_mounts=False
+    #     )
+    #     ship.telemetry.update_ShipNavigation()
+
+    # if ship.status == "IN_TRANSIT":
+    #     logger.info(
+    #         "Ship is already in transit. Please wait until the current travel is complete."
+    #     )
+    #     return
+
+    # write a function here to check if cargo isnt full
+    # if ship.cargo.is_full(): do something
+    logger.info("Preparing laser for extraction...")
+    # extract_json = ship.resource_operations.extract()
+    # pretty_print(extract_json)
+
+    # testing start
+    import json
+    from src.utils.pretty_print import pretty_print
+
+    # Read and load JSON from market.txt
+    with open("json_files/extract.json", "r", encoding="utf-8") as file:
+        extract_json = json.load(file)
+
+    cooldown_time = extract_json.get("data").get("cooldown").get("totalSeconds")
+    logger.info(
+        f"Extraction cooldown time: {cooldown_time} seconds , waiting for laser to cool down..."
+    )
+    await asyncio.sleep(cooldown_time)
+    logger.info("Extraction complete!")

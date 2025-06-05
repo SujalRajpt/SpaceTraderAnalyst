@@ -1,7 +1,7 @@
 import json
 import asyncio
 from confluent_kafka import Consumer, KafkaError
-from src.events.handlers import handle_travel_event
+from src.events.handlers import handle_travel_event, handle_extract_event
 from src.utils.logger import logger
 
 consumer = Consumer(
@@ -36,6 +36,9 @@ async def consume_event():
 
         if event_type == "start_trip":
             loop.create_task(handle_travel_event(event))
+
+        if event_type == "start_extract":
+            loop.create_task(handle_extract_event(event))
         else:
             print(f"Unknown event type: {event_type}")
 

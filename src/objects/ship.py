@@ -852,11 +852,11 @@ class Telemetry:
 
             for name, func in update_tasks:
                 try:
-                    print(f"Updating {name}")
+                    logger.info(f"Updating {name}")
                     func(session=session, ship_info=ship_info)
-                    print(f"Finished updating {name}")
+                    logger.info(f"Finished updating {name}")
                 except Exception as e:
-                    print(
+                    logger.info(
                         f"Failed to update {name} for ship {self.ship.shipSymbol}: {e}"
                     )
 
