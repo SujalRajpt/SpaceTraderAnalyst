@@ -19,6 +19,7 @@ from src.db.models import (
     ShipTelemetry,
     System,
     Waypoint,
+    CargoItem,
 )
 from datetime import datetime
 
@@ -189,15 +190,32 @@ class ShipDB:
                 )
                 return None
 
+            # Fetch all cargo items for this ship_cargo
+            cargo_items = (
+                session.query(CargoItem).filter_by(ship_cargo_id=ship_cargo.id).all()
+            )
+
+            inventory = [
+                {
+                    "id": item.id,
+                    "symbol": item.symbol,
+                    "units": item.units,
+                    "last_updated": item.last_updated.isoformat()
+                    if item.last_updated
+                    else None,
+                }
+                for item in cargo_items
+            ]
+
             logger.info(f"Fetched cargo info for ship {self.ship.shipSymbol} from DB.")
             return {
                 "ship_id": ship.id,
-                "current": ship_cargo.current,
-                "capacity": ship_cargo.capacity,
-                "inventory": ship_cargo.inventory,
+                "current_capacity": ship_cargo.current,
+                "Total_capacity": ship_cargo.capacity,
                 "last_updated": ship_cargo.last_updated.isoformat()
                 if ship_cargo.last_updated
                 else None,
+                "inventory": inventory,
             }
 
     def fetch_shipcrew_from_db(self):
@@ -517,6 +535,28 @@ class Telemetry:
             session=session, ship_info=ship_info, fn=core
         )
 
+    def update_cargo_item(self, session=None, cargo_info=None, cargo_id=None):
+        """Updates the cargo items in the database.
+        It should never be called directly, only through update_ShipCargo.
+        So it will always have session and ship_info available."""
+        for inventory_data in cargo_info:
+            cargo_db = (
+                session.query(CargoItem)
+                .filter_by(
+                    ship_cargo_id=cargo_id, symbol=inventory_data.get("symbol", "")
+                )
+                .first()
+            )
+            if cargo_db:
+                cargo_db.units = inventory_data.get("units", 0)
+            else:
+                cargo_db = CargoItem(
+                    ship_cargo_id=cargo_id,
+                    symbol=inventory_data.get("symbol", ""),
+                    units=inventory_data.get("units", 0),
+                )
+                session.add(cargo_db)
+
     def update_ShipCargo(self, session=None, ship_info=None):
         def core(session, ship_info):
             ship = session.query(Ship).filter_by(symbol=self.ship.shipSymbol).first()
@@ -529,26 +569,28 @@ class Telemetry:
                 logger.warning(f"No cargo data found for ship {self.ship.shipSymbol}.")
                 return
 
-            # Extract and format inventory as list of strings (e.g. symbols or names)
-            inventory_items = cargo_data.get("inventory", [])
-            inventory_symbols = [
-                item.get("symbol") for item in inventory_items if "symbol" in item
-            ]
-
             ship_cargo = session.query(ShipCargo).filter_by(ship_id=ship.id).first()
 
             if ship_cargo:
                 ship_cargo.current = cargo_data.get("units", 0)
                 ship_cargo.capacity = cargo_data.get("capacity", 0)
-                ship_cargo.inventory = inventory_symbols
             else:
                 ship_cargo = ShipCargo(
                     ship_id=ship.id,
                     current=cargo_data.get("units", 0),
                     capacity=cargo_data.get("capacity", 0),
-                    inventory=inventory_symbols,
                 )
                 session.add(ship_cargo)
+                session.flush()
+
+            cargo_id = ship_cargo.id
+
+            inventory_items = cargo_data.get("inventory", [])
+
+            if inventory_items:
+                self.update_cargo_item(
+                    session=session, cargo_info=inventory_items, cargo_id=cargo_id
+                )
 
             session.flush()
 
@@ -833,11 +875,7 @@ class Telemetry:
         )
 
     def update_all_telemetry_subcomponent(self, session=None, ship_info=None):
-        print("Entered update_all_telemetry_subcomponent")
-
         def core(session, ship_info):
-            print("Entered core in update_all_telemetry_subcomponent")
-
             update_tasks = [
                 ("ShipFuel", self.update_ShipFuel),
                 ("ShipCargo", self.update_ShipCargo),

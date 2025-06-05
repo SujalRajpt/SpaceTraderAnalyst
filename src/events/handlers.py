@@ -82,43 +82,44 @@ async def handle_travel_event(event):
 
 
 async def handle_extract_event(event):
-    # player_token = event["player_token"]
-    # ship_symbol = event["ship_symbol"]
-    # player = Player(player_token)
-    # ship = SpaceShip.load_or_create(player=player, shipSymbol=ship_symbol)
+    player_token = event["player_token"]
+    ship_symbol = event["ship_symbol"]
+    player = Player(player_token)
+    ship = SpaceShip.load_or_create(player=player, shipSymbol=ship_symbol)
 
-    # if ship.status == "DOCKED":
-    #     logger.info("Going to Orbit")
-    #     ship.api.get_in_orbit()
-    #     ship.status = "IN_ORBIT"
-    #     ship.save_to_db(
-    #         update_all_subcomponents=False, update_modules=False, update_mounts=False
-    #     )
-    #     ship.telemetry.update_ShipNavigation()
+    if ship.status == "DOCKED":
+        logger.info("Going to Orbit")
+        ship.api.get_in_orbit()
+        ship.status = "IN_ORBIT"
+        ship.save_to_db(
+            update_all_subcomponents=False, update_modules=False, update_mounts=False
+        )
+        ship.telemetry.update_ShipNavigation()
 
-    # if ship.status == "IN_TRANSIT":
-    #     logger.info(
-    #         "Ship is already in transit. Please wait until the current travel is complete."
-    #     )
-    #     return
-
-    # write a function here to check if cargo isnt full
-    # if ship.cargo.is_full(): do something
+    if ship.status == "IN_TRANSIT":
+        logger.info(
+            "Ship is in transit. Please wait until the current travel is complete."
+        )
+        return
+    cargo = ship.db.fetch_shipcargo_from_db()
+    current_capacity = cargo.get("current_capacity", 0)
+    max_capacity = cargo.get("Total_capacity", 0)
+    if current_capacity >= max_capacity:
+        logger.info(
+            f"Ship cargo is full. Current capacity: {current_capacity}, Max capacity: {max_capacity}"
+        )
+        return
     logger.info("Preparing laser for extraction...")
-    # extract_json = ship.resource_operations.extract()
-    # pretty_print(extract_json)
-
-    # testing start
-    import json
-    from src.utils.pretty_print import pretty_print
-
-    # Read and load JSON from market.txt
-    with open("json_files/extract.json", "r", encoding="utf-8") as file:
-        extract_json = json.load(file)
-
+    extract_json = ship.resource_operations.extract()
+    if not extract_json or "error" in extract_json:
+        logger.error("Extraction failed. Please check the ship's status and resources.")
+        return
+    ship.save_to_db()
+    logger.info("Extraction complete!")
     cooldown_time = extract_json.get("data").get("cooldown").get("totalSeconds")
     logger.info(
         f"Extraction cooldown time: {cooldown_time} seconds , waiting for laser to cool down..."
     )
     await asyncio.sleep(cooldown_time)
-    logger.info("Extraction complete!")
+    ship.telemetry.update_ShipCooldown()
+    logger.info("Laser is ready for the next extraction.")

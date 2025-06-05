@@ -58,8 +58,9 @@ player = Player(symbol)
 # )
 
 
-# ship = SpaceShip.load_or_create(shipSymbol=player.shipSymbols[2], player=player)
-# print(ship.db.fetch_mounts_from_db())
+ship = SpaceShip.load_or_create(shipSymbol=player.shipSymbols[0], player=player)
+
+pretty_print(ship.exploration.scan_systems())
 # extract_json = ship.resource_operations.extract()
 # pretty_print(extract_json)
 
@@ -70,5 +71,5 @@ player = Player(symbol)
 # )
 # print(ship.db.fetch_shipcargo_from_db())
 
-ship = SpaceShip.load_or_create(shipSymbol=player.shipSymbols[0], player=player)
-pretty_print(ship.api.get_ship_status())
+# ship = SpaceShip.load_or_create(shipSymbol=player.shipSymbols[0], player=player)
+# pretty_print(ship.api.get_ship_status())

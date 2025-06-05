@@ -15,17 +15,17 @@ with get_session() as session:
 
 
 player = Player(agent_token)
-ship = SpaceShip.load_or_create(shipSymbol=player.shipSymbols[2], player=player)
-destination_waypoint = "X1-AB31-DB5B"
+ship = SpaceShip.load_or_create(shipSymbol=player.shipSymbols[0], player=player)
+destination_waypoint = "X1-AB31-J78"
 
 
-# start_trip_event(
-#     player_token=agent_token,
-#     destination_waypoint=destination_waypoint,
-#     shipsymbol=ship.shipSymbol,
-# )
-
-start_extract_event(
+start_trip_event(
     player_token=agent_token,
+    destination_waypoint=destination_waypoint,
     shipsymbol=ship.shipSymbol,
 )
+
+# start_extract_event(
+#     player_token=agent_token,
+#     shipsymbol=ship.shipSymbol,
+# )

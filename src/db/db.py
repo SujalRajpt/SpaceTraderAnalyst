@@ -29,7 +29,7 @@ def init_db():
     with engine.connect() as conn:
         conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {player_schema}"))
         conn.commit()
-    Base.metadata.drop_all(bind=engine)
+    # Base.metadata.drop_all(bind=engine)
     # Create tables within the schema
     Base.metadata.create_all(engine)
 
