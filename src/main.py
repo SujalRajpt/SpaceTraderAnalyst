@@ -58,9 +58,18 @@ player = Player(symbol)
 # )
 
 
-ship = SpaceShip.load_or_create(shipSymbol=player.shipSymbols[0], player=player)
+ship = SpaceShip.load_or_create(shipSymbol=player.shipSymbols[2], player=player)
+ship.api.dock()
+ship = SpaceShip.load_or_create(
+    shipSymbol=player.shipSymbols[2], player=player, reload_from_api=True
+)
+print(ship)
+pretty_print(ship.exploration.chart_waypoint())
+# ship.api.dock()
+# ship = SpaceShip.load_or_create(
+#     shipSymbol=player.shipSymbols[1], player=player, reload_from_api=True
+# )
 
-pretty_print(ship.exploration.scan_systems())
 # extract_json = ship.resource_operations.extract()
 # pretty_print(extract_json)
 

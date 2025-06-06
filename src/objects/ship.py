@@ -417,6 +417,7 @@ class Telemetry:
                     session.add(new_module)
             session.flush()
 
+        logger.info("Modules updated for ship: %s", self.ship.shipSymbol)
         return self.ship.with_session_and_ship_info(
             session=session, ship_info=ship_info, fn=core
         )
@@ -456,6 +457,7 @@ class Telemetry:
 
             session.flush()
 
+        logger.info("Mounts updated for ship: %s", self.ship.shipSymbol)
         return self.ship.with_session_and_ship_info(
             session=session, ship_info=ship_info, fn=core
         )
@@ -888,15 +890,24 @@ class Telemetry:
                 ("ShipTelemetry", self.update_ShipTelemetry),
             ]
 
+            log_records = []
+            failures = []
+
             for name, func in update_tasks:
                 try:
-                    logger.info(f"Updating {name}")
                     func(session=session, ship_info=ship_info)
-                    logger.info(f"Finished updating {name}")
+                    log_records.append(f"Updated {name}")
                 except Exception as e:
-                    logger.info(
+                    error_msg = (
                         f"Failed to update {name} for ship {self.ship.shipSymbol}: {e}"
                     )
+                    failures.append(error_msg)
+
+            if failures:
+                for msg in failures:
+                    logger.error(msg)
+            else:
+                logger.info("All telemetry subcomponents updated successfully.")
 
         return self.ship.with_session_and_ship_info(
             session=session, ship_info=ship_info, fn=core
@@ -1103,8 +1114,6 @@ class ShipAPI:
             )
             if not result:
                 raise ValueError("Orbit request returned no result.")
-            self.ship.update_from_api()
-            self.ship.save_to_db()
             return result
         except Exception as e:
             logger.error(f"Failed to enter orbit for ship {self.ship.shipSymbol}: {e}")
@@ -1210,8 +1219,8 @@ class SpaceShip(BaseAPI):
         logger.info(f"Updating ship {shipSymbol} from API.")
         ship_obj = cls(shipSymbol, player=player)
         try:
-            ship_obj.update_from_api()
-            ship_obj.save_to_db(session=session)
+            ship_info = ship_obj.update_from_api()
+            ship_obj.save_to_db(session=session, ship_info=ship_info)
             return ship_obj
         except Exception as e:
             logger.error(f"Failed to fetch and save ship {shipSymbol}: {e}")
@@ -1223,6 +1232,7 @@ class SpaceShip(BaseAPI):
         update_mounts=True,
         update_modules=True,
         update_all_subcomponents=True,
+        ship_info=None,
     ):
         if not session:
             with get_session() as new_session:
@@ -1270,7 +1280,8 @@ class SpaceShip(BaseAPI):
 
         session.add(ship)
         session.flush()
-        ship_info = self.api.get_ship_status()
+        if update_modules or update_mounts or update_all_subcomponents:
+            ship_info = ship_info or self.api.get_ship_status()
         if update_modules:
             self.telemetry.update_modules(session=session, ship_info=ship_info)
         if update_mounts:
@@ -1283,7 +1294,8 @@ class SpaceShip(BaseAPI):
 
     def update_from_api(self):
         """Fetches and updates ship info from the API."""
-        ship_info = self.api.get_ship_status()["data"]
+        ship_data = self.api.get_ship_status()
+        ship_info = ship_data.get("data", {})
         if ship_info:
             # Update ship attributes
             self.factionSymbol = ship_info["registration"].get(
@@ -1298,6 +1310,7 @@ class SpaceShip(BaseAPI):
 
         else:
             logger.warning("Ship data not found from API.")
+        return ship_data
 
     def with_session_and_ship_info(self, session=None, ship_info=None, fn=None):
         if fn is None:

@@ -26,6 +26,7 @@ async def handle_travel_event(event):
         logger.info("Going to Orbit")
         ship.api.get_in_orbit()
         ship.status = "IN_ORBIT"
+        ship.update_from_api()
         ship.save_to_db(
             update_all_subcomponents=False, update_modules=False, update_mounts=False
         )
@@ -42,6 +43,14 @@ async def handle_travel_event(event):
     response = ship.api.travel_to_waypoint(destination_waypoint)
     if response:
         ship.status = "IN_TRANSIT"
+        ship_info = ship.update_from_api()
+        ship.save_to_db(
+            update_all_subcomponents=False,
+            update_modules=False,
+            update_mounts=False,
+            ship_info=ship_info,
+        )
+        ship.telemetry.update_ShipNavigation()
 
     logger.info("Event received in handler")
 
@@ -75,8 +84,8 @@ async def handle_travel_event(event):
     logger.info(f"Sleeping for {travel_duration} seconds to simulate travel...")
     logger.info(f"ship status during trip is {ship.status}")
     await asyncio.sleep(travel_duration)
-    ship.update_from_api()
-    ship.save_to_db()
+    ship_info = ship.update_from_api()
+    ship.save_to_db(ship_info=Ship)
     logger.info(f"{ship.shipSymbol} is now in {ship.status}")
     logger.info(f"{ship.shipSymbol} has reached {ship.waypointSymbol}")
 
