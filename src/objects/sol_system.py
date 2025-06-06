@@ -152,3 +152,22 @@ class SolWaypoints:
                     "message": f"No orbitals found for {self.waypoint_symbol}.",
                     "orbitals": [],
                 }
+
+    def fetch_waypoint_details(self):
+        with get_session() as session:
+            waypoint = (
+                session.query(Waypoint)
+                .filter_by(waypoint_symbol=self.waypoint_symbol)
+                .first()
+            )
+            parent_waypoint = "None"
+            parent_id = waypoint.parent_waypoint_id
+            if parent_id:
+                parent = session.query(System).filter(System.id == parent_id).first()
+                parent_waypoint = parent.symbol
+            return {
+                "waypoint_id": waypoint.id,
+                "Waypoint_Symbol": waypoint.waypoint_symbol,
+                "waypoint_type": waypoint.waypoint_type,
+                "parent_waypoint": parent_waypoint,
+            }

@@ -43,6 +43,7 @@ class BaseAPI:
             headers = self._get_header(
                 auth_req, extra_headers, has_body=(data is not None)
             )
+
             response = requests.post(url, json=data, headers=headers, params=params)
             response.raise_for_status()
             return response.json()

@@ -1,5 +1,5 @@
 from src.objects.player import Player
-from src.objects.market import Market
+from src.objects.market import Builder
 from src.db.db_session import get_session
 from src.db.models import Agent
 
@@ -13,5 +13,5 @@ with get_session() as session:
 
 
 player = Player(agent_token)
-market = Market(player)
-market.build_database()
+builder = Builder(player)
+builder.build_database()

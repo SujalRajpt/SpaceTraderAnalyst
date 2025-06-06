@@ -11,7 +11,7 @@ from src.db.models import System, Waypoint, MarketTradeGoods, Ship
 from src.utils.logger import logger
 
 
-class Market:
+class Builder:
     def __init__(self, player):
         self.player = player
 
@@ -189,7 +189,7 @@ class Market:
 
         for ship_symbol in ship_symbols:
             curr_ship = SpaceShip(self.player, ship_symbol)
-            ship_origin_system = "-".join(curr_ship.origin.split("-")[:2])
+            ship_origin_system = curr_ship.waypointSymbol
             sol = SolSystem(ship_origin_system)
             neighbors = sol.get_neighbors_within_radius(radius=1000)
 

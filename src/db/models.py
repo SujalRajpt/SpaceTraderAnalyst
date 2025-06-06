@@ -194,7 +194,25 @@ class ShipCargo(Base):
     ship = relationship("Ship", backref="ship_cargo")
     current = Column(Integer, nullable=False)
     capacity = Column(Integer, nullable=False)
-    inventory = Column(ARRAY(String), nullable=True)
+    last_updated = Column(
+        DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class CargoItem(Base):
+    __tablename__ = "cargo_items"
+    __table_args__ = {"schema": player_schema}
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ship_cargo_id = Column(
+        Integer,
+        ForeignKey(f"{player_schema}.ship_cargo.id"),
+        nullable=False,
+        index=True,
+    )
+    ship_cargo = relationship("ShipCargo", backref="cargo_items")
+    symbol = Column(String, nullable=False)
+    units = Column(Integer, nullable=False)
     last_updated = Column(
         DateTime(timezone=True), default=func.now(), onupdate=func.now(), nullable=False
     )

@@ -1,40 +1,84 @@
-import json
+from src.utils.pretty_print import pretty_print
 from src.objects.player import Player
 from src.objects.ship import SpaceShip
-from src.objects.market import Market
 from src.db.db_session import get_session
-from src.db.models import Agent, Ship
-from src.objects.sol_system import SolSystem
-
-
-def pretty_print(data):
-    """Formats and prints JSON data in a readable way."""
-    print(json.dumps(data, indent=4))
+from src.db.models import Agent, Ship, ShipNavigation
+from src.objects.sol_system import SolSystem, SolWaypoints
 
 
 with get_session() as session:
-    agent = session.query(Agent).filter_by(id=6).first()
+    agent = session.query(Agent).filter_by(id=1).first()
 
     if agent:
         agent_token = agent.agent_token
         symbol = agent.symbol
-        print(symbol)
     else:
         agent_token = None
 
 
-player = Player(symbol, agent_token)
-ship = SpaceShip.load_or_create(shipSymbol="SUJAL12-2", player=player)
+player = Player(symbol)
+# ship = SpaceShip.load_or_create(shipSymbol=player.shipSymbols[0], player=player)
+
+# shipyards = player.fetch_waypoints(filter_by_trait="SHIPYARD")
+# ship_data = player.fetch_market_data(waypoint="X1-AB31-H54", market="shipyard")
+# pretty_print(ship_data)
+
+# recipt = player.purchase_ship(ship_type="SHIP_MINING_DRONE", waypoint="X1-AB31-H54")
+# pretty_print(recipt)
+
+# drone = SpaceShip.load_or_create(player=player, shipSymbol="IRONMAN-3")
+# print(drone)
 
 
-# print(player)
-# print("" * 20)
+# asteroid = player.fetch_waypoints(filter_by_type="ENGINEERED_ASTEROID")
+# pretty_print(asteroid)
+# ship = SpaceShip.load_or_create(shipSymbol=player.shipSymbols[2], player=player)
+
+
+# ship = SpaceShip.load_or_create(
+#     shipSymbol=player.shipSymbols[2], player=player, reload_from_api=True
+# )
+# ship.api.dock()
 # print(ship)
 
-# print(ship.origin)
-# origin_system = "-".join(ship.origin.split("-")[:2])
-# sol = SolSystem(origin_system)
-# neighbors = sol.get_neighbors_within_radius(radius=1000)
+# ship = SpaceShip.load_or_create(shipSymbol=player.shipSymbols[2], player=player)
+# recipt = ship.api.refuel(units=1)
+# pretty_print(recipt)
 
-# mk = player.fetch_market_data()
-pretty_print(ship.get_ship_status())
+# update fuel
+# ship = SpaceShip.load_or_create(
+#     shipSymbol=player.shipSymbols[2], player=player, reload_from_api=True
+# )
+
+
+# ship = SpaceShip.load_or_create(shipSymbol=player.shipSymbols[2], player=player)
+# ship.api.get_in_orbit()
+# ship = SpaceShip.load_or_create(
+#     shipSymbol=player.shipSymbols[2], player=player, reload_from_api=True
+# )
+
+
+ship = SpaceShip.load_or_create(shipSymbol=player.shipSymbols[2], player=player)
+ship.api.dock()
+ship = SpaceShip.load_or_create(
+    shipSymbol=player.shipSymbols[2], player=player, reload_from_api=True
+)
+print(ship)
+pretty_print(ship.exploration.chart_waypoint())
+# ship.api.dock()
+# ship = SpaceShip.load_or_create(
+#     shipSymbol=player.shipSymbols[1], player=player, reload_from_api=True
+# )
+
+# extract_json = ship.resource_operations.extract()
+# pretty_print(extract_json)
+
+
+# bug in cargo
+# ship = SpaceShip.load_or_create(
+#     shipSymbol=player.shipSymbols[2], player=player, reload_from_api=True
+# )
+# print(ship.db.fetch_shipcargo_from_db())
+
+# ship = SpaceShip.load_or_create(shipSymbol=player.shipSymbols[0], player=player)
+# pretty_print(ship.api.get_ship_status())
